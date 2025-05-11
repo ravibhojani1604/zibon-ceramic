@@ -22,7 +22,7 @@
   "tileFormCardDescriptionEdit": "પસંદ કરેલી ટાઇલ માટે વિગતો અપડેટ કરો.",
   "modelNumberLabel": "મોડેલ નંબર",
   "modelNumberPrefixLabel": "મોડેલ નંબર પ્રીફિક્સ",
-  "modelNumberPrefixPlaceholder": "દા.ત., ૧૨૩",
+  "modelNumberPrefixPlaceholder": "દા.ત., ૧૨૩૪૫",
   "modelNumberRequiredError": "મોડેલ નંબરનો ભાગ (પ્રીફિક્સ અથવા પ્રકાર ચેકબોક્સ) આવશ્યક છે.",
   "modelNumberPrefixInvalidError": "મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "જો દાખલ કરવામાં આવે તો મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
@@ -30,7 +30,7 @@
   "typeCheckboxesLabel": "પ્રકાર",
   "selectAllTypes": "બધા પ્રકાર પસંદ કરો",
   "widthLabel": "પહોળાઈ (ઇંચ)",
-  "widthPlaceholder": "દા.ત., ૨૪",
+  "widthPlaceholder": "દા.ત., ૧૨",
   "widthPositiveError": "પહોળાઈ હકારાત્મક નંબર હોવી આવશ્યક છે.",
   "widthRequiredError": "પહોળાઈ એક નંબર હોવી આવશ્યક છે.",
   "heightLabel": "ઊંચાઈ (ઇંચ)",
@@ -81,3 +81,4 @@
   "toastTileDeletedTitle": "ટાઇલ કાઢી નાખવામાં આવી",
   "toastTileDeletedDescription": "ટાઇલ \"{{modelNumber}}\" કાઢી નાખવામાં આવી છે."
 }
+

@@ -22,7 +22,7 @@
   "tileFormCardDescriptionEdit": "Update the details for the selected tile.",
   "modelNumberLabel": "Model Number",
   "modelNumberPrefixLabel": "Model Number Prefix",
-  "modelNumberPrefixPlaceholder": "e.g., 123",
+  "modelNumberPrefixPlaceholder": "e.g., 12345",
   "modelNumberRequiredError": "A model number part (Prefix or a Type checkbox) is required.",
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number.",
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
@@ -30,7 +30,7 @@
   "typeCheckboxesLabel": "Type",
   "selectAllTypes": "Select All Types",
   "widthLabel": "Width (in)",
-  "widthPlaceholder": "e.g., 24",
+  "widthPlaceholder": "e.g., 12",
   "widthPositiveError": "Width must be a positive number.",
   "widthRequiredError": "Width must be a number.",
   "heightLabel": "Height (in)",
@@ -81,3 +81,4 @@
   "toastTileDeletedTitle": "Tile Deleted",
   "toastTileDeletedDescription": "The tile \"{{modelNumber}}\" has been deleted."
 }
+

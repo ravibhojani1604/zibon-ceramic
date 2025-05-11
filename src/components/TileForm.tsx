@@ -1,7 +1,8 @@
+
 "use client";
 
 import type { FC } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,29 +20,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
+import { useTranslation } from '@/context/i18n';
 
 const modelNumberSuffixOptions = ["L", "HL-1", "HL-2", "HL-3", "D", "F"];
-const FORM_FIELD_EMPTY_SUFFIX_VALUE = ""; // Value in react-hook-form when no suffix is selected
-const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; // Internal value for SelectItem representing "None"
+const FORM_FIELD_EMPTY_SUFFIX_VALUE = ""; 
+const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_";
 
 
-const tileSchema = z.object({
+const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string) => z.object({
   modelNumberPrefix: z.preprocess(
     (val) => (String(val).trim() === "" ? undefined : val), 
-    z.coerce.number({ invalid_type_error: "Model prefix must be a valid number."})
-      .positive({ message: "Model prefix must be a positive number if entered." })
+    z.coerce.number({ invalid_type_error: t("modelNumberPrefixInvalidError")})
+      .positive({ message: t("modelNumberPrefixPositiveError") })
       .optional()
   ),
   modelNumberSuffix: z.string().optional(),
-  width: z.coerce.number({invalid_type_error: "Width must be a number."}).positive({ message: "Width must be a positive number." }),
-  height: z.coerce.number({invalid_type_error: "Height must be a number."}).positive({ message: "Height must be a positive number." }),
-  quantity: z.coerce.number({invalid_type_error: "Quantity must be a number."}).int().min(1, { message: "Quantity must be at least 1." }),
-}).refine(data => data.modelNumberPrefix !== undefined || (data.modelNumberSuffix && data.modelNumberSuffix.length > 0), {
-  message: "Either model number prefix or suffix must be provided.",
+  width: z.coerce.number({invalid_type_error: t("widthRequiredError")}).positive({ message: t("widthPositiveError") }),
+  height: z.coerce.number({invalid_type_error: t("heightRequiredError")}).positive({ message: t("heightPositiveError") }),
+  quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }),
+}).refine(data => data.modelNumberPrefix !== undefined || (data.modelNumberSuffix && data.modelNumberSuffix !== FORM_FIELD_EMPTY_SUFFIX_VALUE && data.modelNumberSuffix !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX), {
+  message: t("modelNumberRequiredError"),
   path: ["modelNumberPrefix"], 
 });
 
-export type TileFormData = z.infer<typeof tileSchema>;
+export type TileFormData = z.infer<ReturnType<typeof getTileSchema>>;
 
 interface TileFormProps {
   onSaveTile: (data: TileFormData, id?: string) => void;
@@ -50,6 +52,9 @@ interface TileFormProps {
 }
 
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
+  const { t } = useTranslation();
+  const tileSchema = useMemo(() => getTileSchema(t), [t]);
+
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
     defaultValues: {
@@ -83,22 +88,38 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             foundMatch = true;
             break;
           } else if (fullMN === opt && !sortedSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || sortedSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
-            parsedSuffix = opt;
-            foundMatch = true;
-            break;
+            // Handles cases where model number is just a suffix, e.g. "L"
+            // And ensure it's not a prefix of another suffix (e.g. "H" vs "HL-1")
+            // Or that no other suffix is part of a combined model number like "123-L-D" (though current logic may not fully support this complex case)
+            if (!parsedPrefix && !parsedSuffix) { // only if nothing else matched
+                parsedSuffix = opt;
+                foundMatch = true;
+                break;
+            }
           }
         }
         
         if (!foundMatch && fullMN.length > 0) {
-          const num = parseFloat(fullMN);
-          if (!isNaN(num) && String(num) === fullMN) { 
-            parsedPrefix = num;
-          } else {
-             const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
-             if (leadingNumberMatch) {
-                parsedPrefix = parseFloat(leadingNumberMatch[1]);
-             }
-          }
+            // Attempt to parse as a pure number if no suffix match
+            const num = parseFloat(fullMN);
+            if (!isNaN(num) && String(num) === fullMN) { 
+                parsedPrefix = num;
+            } else {
+                // Fallback: try to extract leading number if any part is non-numeric and not a known suffix
+                 const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
+                 if (leadingNumberMatch) {
+                    parsedPrefix = parseFloat(leadingNumberMatch[1]);
+                    // Potentially, the rest could be a custom suffix, but current logic doesn't store custom suffix input
+                 }
+                 // If no numeric prefix and no known suffix, it might be a fully custom model number
+                 // or a suffix-only model number not caught above.
+                 // For now, if it's not purely numeric, and not a known suffix ending, 
+                 // we'll assume it's either a custom suffix or prefix was not number.
+                 // The form currently doesn't have a field for "custom suffix text", so this part is tricky.
+                 // Let's assume if not parsed as prefix/suffix, it's a prefix that might not be a number, or custom.
+                 // We'll assign it to prefix field if it's numeric, otherwise leave suffix blank.
+                 // This part of logic might need refinement based on how "custom" model numbers are structured.
+            }
         }
       }
       form.reset({
@@ -133,14 +154,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       <CardHeader>
         <CardTitle className="text-xl flex items-center gap-2">
           {isEditing ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
-          {isEditing ? 'Edit Tile' : 'Add New Tile'}
+          {isEditing ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div>
-              <FormLabel>Model Number</FormLabel>
+              <FormLabel>{t('modelNumberLabel')}</FormLabel>
               <div className="flex gap-2 items-start mt-1">
                 <FormField
                   control={form.control}
@@ -150,7 +171,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                       <FormControl>
                         <Input 
                           type="number" 
-                          placeholder="e.g., 123" 
+                          placeholder={t('modelNumberPrefixPlaceholder')} 
                           {...field} 
                           value={field.value ?? ''} 
                           onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
@@ -178,11 +199,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select suffix" />
+                            <SelectValue placeholder={t('modelNumberSuffixPlaceholder')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value={SELECT_ITEM_VALUE_FOR_NONE_SUFFIX}>None</SelectItem>
+                          <SelectItem value={SELECT_ITEM_VALUE_FOR_NONE_SUFFIX}>{t('modelNumberSuffixNone')}</SelectItem>
                           {modelNumberSuffixOptions.map(option => (
                             <SelectItem key={option} value={option}>
                               {option}
@@ -195,8 +216,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   )}
                 />
               </div>
-               {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes("Either model number prefix or suffix") && (
-                <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
+               {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes(t("modelNumberRequiredError")) && (
+                <p className="text-sm font-medium text-destructive pt-1">{t("modelNumberRequiredError")}</p>
               )}
             </div>
             
@@ -206,11 +227,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 name="width"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Width (in)</FormLabel>
+                    <FormLabel>{t('widthLabel')}</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 
-                        placeholder="e.g., 24" 
+                        placeholder={t('widthPlaceholder')} 
                         {...field} 
                         value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
@@ -226,11 +247,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 name="height"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Height (in)</FormLabel>
+                    <FormLabel>{t('heightLabel')}</FormLabel>
                     <FormControl>
                       <Input 
                         type="number" 
-                        placeholder="e.g., 12" 
+                        placeholder={t('heightPlaceholder')} 
                         {...field} 
                         value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
@@ -247,11 +268,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               name="quantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Quantity</FormLabel>
+                  <FormLabel>{t('quantityLabel')}</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
-                      placeholder="e.g., 100" 
+                      placeholder={t('quantityPlaceholder')} 
                       {...field} 
                       value={field.value ?? ''}
                       onChange={e => {
@@ -272,12 +293,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             <div className="flex space-x-2">
               <Button type="submit" className="w-full">
                 {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                {isEditing ? 'Update Tile' : 'Add Tile'}
+                {isEditing ? t('updateTileButton') : t('addTileButton')}
               </Button>
               {isEditing && (
                 <Button type="button" variant="outline" onClick={() => { form.reset(); onCancelEdit();}} className="w-full">
                   <XCircle className="mr-2 h-4 w-4" />
-                  Cancel
+                  {t('cancelButton')}
                 </Button>
               )}
             </div>

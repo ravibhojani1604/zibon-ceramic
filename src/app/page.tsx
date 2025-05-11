@@ -14,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from '@/context/i18n';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function InventoryPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -21,6 +23,7 @@ export default function InventoryPage() {
   const [isClient, setIsClient] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
+  const { t, locale } = useTranslation();
 
   useEffect(() => {
     setIsClient(true);
@@ -48,8 +51,10 @@ export default function InventoryPage() {
   useEffect(() => {
     if (isClient) {
       localStorage.setItem('tileInventory', JSON.stringify(tiles));
+      // Update document title dynamically based on language
+      document.title = t('appTitle');
     }
-  }, [tiles, isClient]);
+  }, [tiles, isClient, t, locale]);
 
   const handleAddNewTileClick = () => {
     setEditingTile(null);
@@ -85,8 +90,8 @@ export default function InventoryPage() {
         prevTiles.map(tile => (tile.id === id ? { ...tile, ...tileDataForStorage, modelNumber } : tile))
       );
       toast({
-        title: "Tile Updated",
-        description: `The tile "${tileDisplayName}" has been updated successfully.`,
+        title: t('toastTileUpdatedTitle'),
+        description: t('toastTileUpdatedDescription', { modelNumber: tileDisplayName }),
         variant: "default",
       });
     } else { 
@@ -97,14 +102,14 @@ export default function InventoryPage() {
       };
       setTiles(prevTiles => [newTile, ...prevTiles]);
       toast({
-        title: "Tile Added",
-        description: `New tile "${tileDisplayName}" has been added successfully.`,
+        title: t('toastTileAddedTitle'),
+        description: t('toastTileAddedDescription', { modelNumber: tileDisplayName }),
         variant: "default",
       });
     }
     setIsFormOpen(false);
     setEditingTile(null);
-  }, [isClient, toast]);
+  }, [isClient, toast, t]);
 
   const handleEditTile = useCallback((tile: Tile) => {
     setEditingTile(tile);
@@ -123,17 +128,17 @@ export default function InventoryPage() {
     
     if (editingTile && editingTile.id === tileId) {
       setEditingTile(null); 
-      setIsFormOpen(false); // Close form if the edited tile is deleted
+      setIsFormOpen(false); 
     }
     if (tileToDelete){
       const tileDisplayName = tileToDelete.modelNumber;
       toast({
-        title: "Tile Deleted",
-        description: `The tile "${tileDisplayName}" has been deleted.`,
+        title: t('toastTileDeletedTitle'),
+        description: t('toastTileDeletedDescription', { modelNumber: tileDisplayName }),
         variant: "destructive",
       });
     }
-  }, [isClient, toast, tiles, editingTile]);
+  }, [isClient, toast, tiles, editingTile, t]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -156,9 +161,10 @@ export default function InventoryPage() {
                 <path d="M14 14h7v7h-7z" />
               </svg>
             <h1 className="text-3xl font-bold text-primary tracking-tight">
-              Zibon Ceramic
+              {t('headerTitle')}
             </h1>
           </div>
+          <LanguageSwitcher />
         </div>
       </header>
       
@@ -166,7 +172,7 @@ export default function InventoryPage() {
         <div className="mb-6 flex justify-end">
           <Button onClick={handleAddNewTileClick}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Tile
+            {t('addNewTile')}
           </Button>
         </div>
 
@@ -175,12 +181,11 @@ export default function InventoryPage() {
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
-              setEditingTile(null); // Reset editing state when dialog is closed externally
+              setEditingTile(null);
             }
           }}
         >
           <DialogContent className="sm:max-w-lg">
-            {/* TileForm's CardHeader will serve as the dialog title area */}
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
@@ -199,7 +204,7 @@ export default function InventoryPage() {
       </main>
 
       <footer className="py-6 mt-auto text-center text-sm text-muted-foreground border-t border-border bg-card">
-        <p>© {isClient ? new Date().getFullYear() : '...'} Zibon Ceramic. All rights reserved.</p>
+        <p>{t('footerCopyright', { year: isClient ? new Date().getFullYear().toString() : '...' })}</p>
       </footer>
     </div>
   );

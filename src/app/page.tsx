@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -20,10 +19,21 @@ export default function InventoryPage() {
       try {
         const parsedTiles = JSON.parse(savedTiles);
         if (Array.isArray(parsedTiles)) {
-          setTiles(parsedTiles);
+          // Ensure loaded tiles conform to the new structure or have defaults
+          const migratedTiles = parsedTiles.map(tile => ({
+            id: tile.id,
+            modelNumber: tile.modelNumber || (tile.type ? String(tile.type) : 'N/A'), // Basic migration/default
+            material: tile.material || 'Unknown', // Basic migration/default
+            width: tile.width,
+            height: tile.height,
+            quantity: tile.quantity,
+          }));
+          setTiles(migratedTiles);
         }
       } catch (error) {
         console.error("Failed to parse tiles from localStorage", error);
+        // Potentially set empty array if parsing fails or old data is incompatible
+        setTiles([]);
       }
     }
   }, []);
@@ -37,16 +47,18 @@ export default function InventoryPage() {
   const handleSaveTile = useCallback((data: TileFormData, id?: string) => {
     if (!isClient) return;
 
+    const tileDisplayName = `${data.modelNumber} - ${data.material}`;
+
     if (id) { // Update existing tile
       setTiles(prevTiles =>
         prevTiles.map(tile => (tile.id === id ? { ...tile, ...data } : tile))
       );
       toast({
         title: "Tile Updated",
-        description: `The tile "${data.type}" has been updated successfully.`,
+        description: `The tile "${tileDisplayName}" has been updated successfully.`,
         variant: "default",
       });
-      setEditingTile(null); // Exit edit mode
+      setEditingTile(null); 
     } else { // Add new tile
       const newTile: Tile = {
         id: crypto.randomUUID(),
@@ -55,7 +67,7 @@ export default function InventoryPage() {
       setTiles(prevTiles => [newTile, ...prevTiles]);
       toast({
         title: "Tile Added",
-        description: `New tile "${data.type}" has been added successfully.`,
+        description: `New tile "${tileDisplayName}" has been added successfully.`,
         variant: "default",
       });
     }
@@ -63,7 +75,6 @@ export default function InventoryPage() {
 
   const handleEditTile = useCallback((tile: Tile) => {
     setEditingTile(tile);
-    // Optionally, scroll to the form or focus the first input field
     const formElement = document.getElementById('tile-form-card');
     if (formElement) {
       formElement.scrollIntoView({ behavior: 'smooth' });
@@ -82,9 +93,10 @@ export default function InventoryPage() {
       setEditingTile(null); 
     }
     if (tileToDelete){
+      const tileDisplayName = `${tileToDelete.modelNumber} - ${tileToDelete.material}`;
       toast({
         title: "Tile Deleted",
-        description: `The tile "${tileToDelete.type}" has been deleted.`,
+        description: `The tile "${tileDisplayName}" has been deleted.`,
         variant: "destructive",
       });
     }

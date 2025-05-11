@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -17,11 +16,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 
 const tileSchema = z.object({
-  type: z.string().min(3, { message: "Tile type must be at least 3 characters." }),
+  modelNumber: z.string().min(1, { message: "Model number is required." }),
+  material: z.string().nonempty({ message: "Material is required." }),
   width: z.coerce.number().positive({ message: "Width must be a positive number." }),
   height: z.coerce.number().positive({ message: "Height must be a positive number." }),
   quantity: z.coerce.number().int().min(1, { message: "Quantity must be at least 1." }),
@@ -35,32 +36,33 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
+const materialOptions = ["Ceramic", "Porcelain", "Stone", "Glass", "Mosaic", "Vinyl", "Other"];
+
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
     defaultValues: {
-      type: "",
-      width: "" as unknown as number, // Initialize with empty string for controlled input
-      height: "" as unknown as number, // Initialize with empty string for controlled input
-      quantity: "" as unknown as number, // Initialize with empty string for controlled input
+      modelNumber: "",
+      material: "",
+      width: "" as unknown as number, 
+      height: "" as unknown as number,
+      quantity: "" as unknown as number,
     },
   });
 
   useEffect(() => {
     if (editingTile) {
       form.reset({
-        ...editingTile,
-        // Ensure width, height, quantity are strings if they are numbers from editingTile,
-        // or keep them as numbers and let the input handle coercion.
-        // For controlled inputs, it's better to ensure they get a string or number, not undefined.
-        // react-hook-form handles number values correctly for type="number" inputs.
+        modelNumber: editingTile.modelNumber || "",
+        material: editingTile.material || "",
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
       });
     } else {
       form.reset({
-        type: "",
+        modelNumber: "",
+        material: "",
         width: "" as unknown as number,
         height: "" as unknown as number,
         quantity: "" as unknown as number,
@@ -70,8 +72,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
-    if (!editingTile) { // Only reset for new tile additions, edit mode reset is handled by useEffect if needed
-        form.reset(); // This will use the defaultValues: type:"", width:"", height:"", quantity:""
+    if (!editingTile) { 
+        form.reset(); 
     }
   };
 
@@ -90,13 +92,37 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="type"
+              name="modelNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tile Type</FormLabel>
+                  <FormLabel>Model Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Ceramic Floor Tile" {...field} />
+                    <Input placeholder="e.g., A123 or 00785" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="material"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Material</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a material" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {materialOptions.map(option => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

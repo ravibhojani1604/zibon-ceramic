@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -17,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, Palette } from "lucide-react"; 
 
 interface TileListProps {
   tiles: Tile[];
@@ -43,7 +42,6 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
 
     return tiles.filter(tile => {
       return searchTerms.every(term => {
-        // Check for size match (e.g., "24x12")
         const sizeMatch = term.match(/^(\d*\.?\d*)x(\d*\.?\d*)$/i);
         if (sizeMatch) {
           const searchWidth = parseFloat(sizeMatch[1]);
@@ -60,8 +58,10 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
           return widthMatches && heightMatches;
         }
 
-        // Check for type match
-        return tile.type.toLowerCase().includes(term);
+        return (
+          (tile.modelNumber?.toLowerCase() || '').includes(term) ||
+          (tile.material?.toLowerCase() || '').includes(term)
+        );
       });
     });
   }, [tiles, searchTerm]);
@@ -95,11 +95,11 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
           <div className="flex items-center gap-2">
             <Search className="text-muted-foreground" />
             <Input
-              placeholder="Search by type or size (e.g., Ceramic 24x12)..."
+              placeholder="Search by model, material, or size (e.g., A123 Ceramic 24x12)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full"
-              aria-label="Search by tile type or size (widthxheight)"
+              aria-label="Search by tile model, material, or size (widthxheight)"
             />
           </div>
         </CardHeader>
@@ -122,11 +122,19 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                     <CardTitle className="text-lg flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <Square className="text-primary" size={20} aria-label="Tile icon"/>
-                        {tile.type}
+                        {tile.modelNumber || 'N/A'} - {tile.material || 'N/A'}
                       </span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pt-2">
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Tag size={16} />
+                      <span>Model: {tile.modelNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Palette size={16} />
+                      <span>Material: {tile.material || 'N/A'}</span>
+                    </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Ruler size={16} />
                       <span>Dimensions: {`${tile.width} x ${tile.height} in`}</span>
@@ -157,7 +165,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the tile
-              "{tileToDelete?.type}" from your inventory.
+              "{tileToDelete?.modelNumber || 'N/A'} - {tileToDelete?.material || 'N/A'}" from your inventory.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

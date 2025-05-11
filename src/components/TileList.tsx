@@ -17,7 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet } from "lucide-react"; 
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { useToast } from "@/hooks/use-toast";
+
 
 interface TileListProps {
   tiles: Tile[];
@@ -29,6 +34,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<Tile | null>(null);
+  const { toast } = useToast();
 
   const totalQuantity = useMemo(() => {
     return tiles.reduce((sum, tile) => sum + tile.quantity, 0);
@@ -61,7 +67,6 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
 
         return (
           (tile.modelNumber?.toLowerCase() || '').includes(term)
-          // Removed material search: || (tile.material?.toLowerCase() || '').includes(term)
         );
       });
     });
@@ -80,6 +85,64 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
     setTileToDelete(null);
   };
 
+  const handleExportPDF = () => {
+    if (filteredTiles.length === 0) {
+      toast({
+        title: "No Tiles to Export",
+        description: "There are no tiles matching the current filter to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    (doc as any).autoTable({
+      head: [['Model Number', 'Width (in)', 'Height (in)', 'Quantity']],
+      body: filteredTiles.map(tile => [
+        tile.modelNumber || 'N/A',
+        tile.width,
+        tile.height,
+        tile.quantity,
+      ]),
+      startY: 20,
+      didDrawPage: (data: any) => {
+        doc.setFontSize(18);
+        doc.text("Zibon Ceramic - Tile Inventory", data.settings.margin.left, 15);
+      }
+    });
+    doc.save('zibon_ceramic_tile_inventory.pdf');
+    toast({
+      title: "Export Successful",
+      description: "Tile inventory has been exported to PDF.",
+    });
+  };
+
+  const handleExportExcel = () => {
+    if (filteredTiles.length === 0) {
+      toast({
+        title: "No Tiles to Export",
+        description: "There are no tiles matching the current filter to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const dataToExport = filteredTiles.map(tile => ({
+      'Model Number': tile.modelNumber || 'N/A',
+      'Width (in)': tile.width,
+      'Height (in)': tile.height,
+      'Quantity': tile.quantity,
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tiles');
+    XLSX.writeFile(wb, 'zibon_ceramic_tile_inventory.xlsx');
+    toast({
+      title: "Export Successful",
+      description: "Tile inventory has been exported to Excel.",
+    });
+  };
+
+
   return (
     <>
       <Card className="shadow-lg">
@@ -93,15 +156,25 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
               Total Tiles: <span className="text-primary">{totalQuantity}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Search className="text-muted-foreground" />
-            <Input
-              placeholder="Search by model or size (e.g., A123 24x12)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-              aria-label="Search by tile model or size (widthxheight)"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:flex-1">
+              <Search className="text-muted-foreground" />
+              <Input
+                placeholder="Search by model or size (e.g., A123 24x12)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+                aria-label="Search by tile model or size (widthxheight)"
+              />
+            </div>
+            <div className="flex gap-2 mt-2 sm:mt-0">
+              <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto">
+                <FileDown className="mr-1 h-4 w-4" /> Export PDF
+              </Button>
+              <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto">
+                <FileSpreadsheet className="mr-1 h-4 w-4" /> Export Excel
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -132,12 +205,6 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       <Tag size={16} />
                       <span>Model: {tile.modelNumber || 'N/A'}</span>
                     </div>
-                    {/* Removed Material display
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Palette size={16} />
-                      <span>Material: {tile.material || 'N/A'}</span>
-                    </div>
-                    */}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Ruler size={16} />
                       <span>Dimensions: {`${tile.width} x ${tile.height} in`}</span>
@@ -146,7 +213,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       <Package size={16} />
                       <span>Quantity: {tile.quantity}</span>
                     </div>
-                     <div className="sm:col-span-2 flex justify-end space-x-2 mt-2 sm:mt-0"> {/* Adjusted mt for consistent spacing */}
+                     <div className="sm:col-span-2 flex justify-end space-x-2 mt-2 sm:mt-0">
                       <Button variant="outline" size="sm" onClick={() => onEditTile(tile)}>
                         <Edit3 className="mr-1 h-4 w-4" /> Edit
                       </Button>

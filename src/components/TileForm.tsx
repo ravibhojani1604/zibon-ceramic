@@ -1,6 +1,8 @@
+
 "use client";
 
 import type { FC } from 'react';
+import { useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,8 +17,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Edit3, XCircle } from "lucide-react";
+import type { Tile } from "@/types";
 
 const tileSchema = z.object({
   type: z.string().min(3, { message: "Tile type must be at least 3 characters." }),
@@ -28,37 +30,50 @@ const tileSchema = z.object({
 export type TileFormData = z.infer<typeof tileSchema>;
 
 interface TileFormProps {
-  onAddTile: (data: TileFormData) => void;
+  onSaveTile: (data: TileFormData, id?: string) => void;
+  editingTile: Tile | null;
+  onCancelEdit: () => void;
 }
 
-const TileForm: FC<TileFormProps> = ({ onAddTile }) => {
-  const { toast } = useToast();
+const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
     defaultValues: {
       type: "",
-      width: undefined, // Use undefined for number inputs to show placeholder
+      width: undefined,
       height: undefined,
       quantity: undefined,
     },
   });
 
+  useEffect(() => {
+    if (editingTile) {
+      form.reset(editingTile);
+    } else {
+      form.reset({
+        type: "",
+        width: undefined,
+        height: undefined,
+        quantity: undefined,
+      });
+    }
+  }, [editingTile, form]);
+
   const onSubmit = (data: TileFormData) => {
-    onAddTile(data);
-    form.reset();
-    toast({
-      title: "Tile Added Successfully",
-      description: `${data.type} (${data.width}x${data.height}) has been added to the inventory.`,
-      variant: "default",
-    });
+    onSaveTile(data, editingTile?.id);
+    if (!editingTile) { // Only reset for new tile additions, edit mode reset is handled by useEffect
+        form.reset();
+    }
   };
+
+  const isEditing = !!editingTile;
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl flex items-center gap-2">
-          <PlusCircle className="text-primary" />
-          Add New Tile
+          {isEditing ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
+          {isEditing ? 'Edit Tile' : 'Add New Tile'}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -118,9 +133,18 @@ const TileForm: FC<TileFormProps> = ({ onAddTile }) => {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Tile
-            </Button>
+            <div className="flex space-x-2">
+              <Button type="submit" className="w-full">
+                {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                {isEditing ? 'Update Tile' : 'Add Tile'}
+              </Button>
+              {isEditing && (
+                <Button type="button" variant="outline" onClick={onCancelEdit} className="w-full">
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+              )}
+            </div>
           </form>
         </Form>
       </CardContent>

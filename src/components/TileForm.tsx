@@ -22,6 +22,7 @@ import type { Tile } from "@/types";
 
 const modelNumberSuffixOptions = ["Hl-1", "Hl-2", "d", "f"];
 const materialOptions = ["Ceramic", "Porcelain", "Stone", "Glass", "Mosaic", "Vinyl", "Other"];
+const EMPTY_SUFFIX_VALUE = "__EMPTY_SUFFIX__"; // Unique value for the "None" option in suffix select
 
 const tileSchema = z.object({
   modelNumberPrefix: z.preprocess(
@@ -66,10 +67,9 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       let parsedPrefix: number | undefined = undefined;
       let parsedSuffix: string = "";
 
-      if (editingTile.modelNumber) {
+      if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let foundMatch = false;
-        // Sort suffixes by length descending to match longer suffixes first (e.g., "Hl-1" before "1" if "1" were an option)
         const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
 
         for (const opt of sortedSuffixOptions) {
@@ -82,25 +82,22 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             parsedSuffix = opt;
             foundMatch = true;
             break;
-          } else if (fullMN === opt) {
-            // Model number is just the suffix part
+          } else if (fullMN === opt && !modelNumberSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-"))) {
+            // Model number is just the suffix part, and not a prefix for another suffix
             parsedSuffix = opt;
             foundMatch = true;
             break;
           }
         }
-
+        
         if (!foundMatch && fullMN.length > 0) {
-          // No suffix match from options, try to parse as a number for prefix
           const num = parseFloat(fullMN);
-          if (!isNaN(num) && String(num) === fullMN) { // Is it purely a number?
+          if (!isNaN(num) && String(num) === fullMN) { 
             parsedPrefix = num;
           } else {
-            // It's some other string, attempt to extract leading number as prefix
              const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
              if (leadingNumberMatch) {
                 parsedPrefix = parseFloat(leadingNumberMatch[1]);
-                // Potentially, the rest could be a non-standard suffix, but we ignore it for this form
              }
           }
         }
@@ -173,14 +170,23 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   name="modelNumberSuffix"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <Select onValueChange={field.onChange} value={field.value ?? ""} defaultValue={field.value ?? ""}>
+                      <Select 
+                        onValueChange={(selectedValue) => {
+                          if (selectedValue === EMPTY_SUFFIX_VALUE) {
+                            field.onChange(""); 
+                          } else {
+                            field.onChange(selectedValue);
+                          }
+                        }} 
+                        value={field.value ?? ""}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select suffix" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value={EMPTY_SUFFIX_VALUE}>None</SelectItem>
                           {modelNumberSuffixOptions.map(option => (
                             <SelectItem key={option} value={option}>
                               {option}
@@ -193,8 +199,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   )}
                 />
               </div>
-               {/* Display general refine error for model number combination */}
-              {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes("Either model number prefix or suffix") && (
+               {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes("Either model number prefix or suffix") && (
                 <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
               )}
             </div>
@@ -205,7 +210,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Material</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value ?? ""} defaultValue={field.value ?? ""}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a material" />
@@ -277,7 +282,15 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                       placeholder="e.g., 100" 
                       {...field} 
                       value={field.value === undefined ? '' : field.value}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          field.onChange(undefined);
+                        } else {
+                          const num = parseInt(val, 10);
+                          field.onChange(isNaN(num) ? undefined : num);
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -290,7 +303,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 {isEditing ? 'Update Tile' : 'Add Tile'}
               </Button>
               {isEditing && (
-                <Button type="button" variant="outline" onClick={onCancelEdit} className="w-full">
+                <Button type="button" variant="outline" onClick={() => { form.reset(); onCancelEdit();}} className="w-full">
                   <XCircle className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>

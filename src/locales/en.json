@@ -18,6 +18,8 @@
   
   "tileFormCardTitleAdd": "Add New Tile",
   "tileFormCardTitleEdit": "Edit Tile",
+  "tileFormCardDescriptionAdd": "Fill in the details below to add a new tile to your inventory.",
+  "tileFormCardDescriptionEdit": "Update the details for the selected tile.",
   "modelNumberLabel": "Model Number",
   "modelNumberPrefixPlaceholder": "e.g., 123",
   "modelNumberSuffixPlaceholder": "Select suffix",

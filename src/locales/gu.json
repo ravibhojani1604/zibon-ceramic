@@ -18,6 +18,8 @@
 
   "tileFormCardTitleAdd": "નવી ટાઇલ ઉમેરો",
   "tileFormCardTitleEdit": "ટાઇલ સંપાદિત કરો",
+  "tileFormCardDescriptionAdd": "તમારી ઇન્વેન્ટરીમાં નવી ટાઇલ ઉમેરવા માટે નીચેની વિગતો ભરો.",
+  "tileFormCardDescriptionEdit": "પસંદ કરેલી ટાઇલ માટે વિગતો અપડેટ કરો.",
   "modelNumberLabel": "મોડેલ નંબર",
   "modelNumberPrefixPlaceholder": "દા.ત., ૧૨૩",
   "modelNumberSuffixPlaceholder": "પ્રત્યય પસંદ કરો",

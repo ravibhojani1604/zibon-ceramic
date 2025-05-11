@@ -7,11 +7,14 @@ import TileList from "@/components/TileList";
 import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Edit3 } from "lucide-react";
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -193,6 +196,8 @@ export default function InventoryPage() {
     );
   }
 
+  const isEditingForm = !!editingTile;
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="py-6 bg-card border-b border-border shadow-sm sticky top-0 z-10">
@@ -242,6 +247,15 @@ export default function InventoryPage() {
           }}
         >
           <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
+                {isEditingForm ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
+              </DialogTitle>
+              <DialogDescription>
+                {isEditingForm ? t('tileFormCardDescriptionEdit') : t('tileFormCardDescriptionAdd')}
+              </DialogDescription>
+            </DialogHeader>
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}

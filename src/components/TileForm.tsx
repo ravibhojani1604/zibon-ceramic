@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
@@ -150,14 +150,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   const isEditing = !!editingTile;
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-xl flex items-center gap-2">
-          {isEditing ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
-          {isEditing ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Card className="shadow-none border-none">
+      <CardContent className="pt-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div>

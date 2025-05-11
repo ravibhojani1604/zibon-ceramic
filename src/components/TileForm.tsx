@@ -83,9 +83,9 @@ const TileForm: FC<TileFormProps> = ({ onAddTile }) => {
                 name="width"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Width (cm)</FormLabel>
+                    <FormLabel>Width (in)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 60" {...field} step="any" />
+                      <Input type="number" placeholder="e.g., 24" {...field} step="any" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -96,9 +96,9 @@ const TileForm: FC<TileFormProps> = ({ onAddTile }) => {
                 name="height"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Height (cm)</FormLabel>
+                    <FormLabel>Height (in)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 30" {...field} step="any" />
+                      <Input type="number" placeholder="e.g., 12" {...field} step="any" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

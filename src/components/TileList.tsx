@@ -45,7 +45,7 @@ const TileList: FC<TileListProps> = ({ tiles }) => {
                 <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pt-2">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Ruler size={16} />
-                    <span>Dimensions: {`${tile.width} x ${tile.height} cm`}</span>
+                    <span>Dimensions: {`${tile.width} x ${tile.height} in`}</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Package size={16} />

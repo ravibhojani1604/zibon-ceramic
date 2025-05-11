@@ -44,7 +44,9 @@ const initializationPromise: Promise<{ app: FirebaseApp | undefined, auth: Auth 
     console.log("Auth instance obtained.");
 
     console.log("Getting Firestore instance...");
-    const db = getFirestore(app);
+    const db = getFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
     console.log("Firestore instance obtained.");
 
     return { app, auth, db };

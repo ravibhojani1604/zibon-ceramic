@@ -28,7 +28,7 @@
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
   "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-4 or HL-5 is selected.",
   "suffixCheckboxesLabel": "Suffixes",
-  "suffixCheckboxesDescription": "If adding, multiple selections create multiple tiles. If editing, only one suffix applies.",
+  "selectAllSuffixes": "Select All Suffixes",
   "widthLabel": "Width (in)",
   "widthPlaceholder": "e.g., 24",
   "widthPositiveError": "Width must be a positive number.",

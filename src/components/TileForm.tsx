@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { CardContent } from "@/components/ui/card"; // Removed Card import as it's not used directly
+import { CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
@@ -26,10 +26,10 @@ import { useTranslation } from '@/context/i18n';
 const SUFFIX_L = "L";
 const SUFFIX_HL1 = "HL-1";
 const SUFFIX_HL2 = "HL-2";
-const SUFFIX_D = "D";
-const SUFFIX_F = "F";
 const SUFFIX_HL4 = "HL-4";
 const SUFFIX_HL5 = "HL-5";
+const SUFFIX_D = "D";
+const SUFFIX_F = "F";
 
 
 const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string) => z.object({
@@ -76,10 +76,15 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
+const suffixFields: (keyof TileFormData)[] = [
+  "suffix_L", "suffix_HL1", "suffix_HL2", "suffix_HL4", "suffix_HL5", "suffix_D", "suffix_F"
+];
+
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const { t } = useTranslation();
   const isEditing = !!editingTile;
   const tileSchema = useMemo(() => getTileSchema(t), [t]);
+  const [selectAllSuffixes, setSelectAllSuffixes] = useState(false);
 
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
@@ -98,8 +103,21 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     },
   });
 
+  const watchedSuffixes = form.watch(suffixFields);
+
+  useEffect(() => {
+    if (!isEditing) {
+      const allChecked = suffixFields.every(field => !!form.getValues(field));
+      if (allChecked !== selectAllSuffixes) {
+        setSelectAllSuffixes(allChecked);
+      }
+    }
+  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]);
+
+
   useEffect(() => {
     if (editingTile) {
+      setSelectAllSuffixes(false); // Disable select all on edit mode
       let parsedPrefix: number | undefined = undefined;
       let parsedSuffix_L = false;
       let parsedSuffix_HL1 = false;
@@ -181,6 +199,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         height: undefined,
         quantity: undefined,
       });
+      setSelectAllSuffixes(false);
     }
   }, [editingTile, form]); 
 
@@ -188,12 +207,19 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     onSaveTile(data, editingTile?.id);
     if (!isEditing) {
         form.reset(); 
+        setSelectAllSuffixes(false);
     }
   };
 
+  const handleSelectAllChange = (checked: boolean) => {
+    setSelectAllSuffixes(checked);
+    suffixFields.forEach(field => {
+      form.setValue(field, checked, { shouldValidate: true });
+    });
+  };
 
   return (
-    <CardContent className="pt-6"> {/* Removed Card wrapper as DialogContent provides a card-like container */}
+    <CardContent className="pt-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
@@ -219,6 +245,21 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
           
           <div className="space-y-2">
               <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
+              {!isEditing && (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                  <FormControl>
+                    <Checkbox
+                      checked={selectAllSuffixes}
+                      onCheckedChange={handleSelectAllChange}
+                      id="select-all-suffixes"
+                      disabled={isEditing}
+                    />
+                  </FormControl>
+                  <FormLabel htmlFor="select-all-suffixes" className="font-normal">
+                    {t('selectAllSuffixes')}
+                  </FormLabel>
+                </FormItem>
+              )}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {[
                   { name: "suffix_L" as const, label: SUFFIX_L },
@@ -242,13 +283,9 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                               if (isEditing) {
                                 // When editing, only one suffix can be active.
                                 if (checked) {
-                                  form.setValue("suffix_L", suffix.name === "suffix_L");
-                                  form.setValue("suffix_HL1", suffix.name === "suffix_HL1");
-                                  form.setValue("suffix_HL2", suffix.name === "suffix_HL2");
-                                  form.setValue("suffix_D", suffix.name === "suffix_D");
-                                  form.setValue("suffix_F", suffix.name === "suffix_F");
-                                  form.setValue("suffix_HL4", suffix.name === "suffix_HL4");
-                                  form.setValue("suffix_HL5", suffix.name === "suffix_HL5");
+                                  suffixFields.forEach(sField => {
+                                    form.setValue(sField, sField === suffix.name);
+                                  });
                                 } else {
                                    field.onChange(false); // Allow unchecking
                                 }
@@ -266,7 +303,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   />
                 ))}
               </div>
-              {/* Combined error message display for model number requirements */}
               {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
                  <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
               )}
@@ -360,4 +396,3 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 };
 
 export default TileForm;
-

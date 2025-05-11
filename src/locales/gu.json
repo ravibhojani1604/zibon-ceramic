@@ -28,7 +28,7 @@
   "modelNumberPrefixPositiveError": "જો દાખલ કરવામાં આવે તો મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixRequiredWithHL": "જો HL-1, HL-2, HL-4 અથવા HL-5 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
   "suffixCheckboxesLabel": "પ્રત્યયો",
-  "suffixCheckboxesDescription": "જો ઉમેરી રહ્યા હો, તો બહુવિધ પસંદગીઓ બહુવિધ ટાઇલ્સ બનાવશે. જો સંપાદિત કરી રહ્યા હો, તો ફક્ત એક પ્રત્યય લાગુ પડે છે.",
+  "selectAllSuffixes": "બધા પ્રત્યયો પસંદ કરો",
   "widthLabel": "પહોળાઈ (ઇંચ)",
   "widthPlaceholder": "દા.ત., ૨૪",
   "widthPositiveError": "પહોળાઈ હકારાત્મક નંબર હોવી આવશ્યક છે.",

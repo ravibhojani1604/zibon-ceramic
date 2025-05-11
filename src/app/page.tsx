@@ -19,11 +19,11 @@ export default function InventoryPage() {
       try {
         const parsedTiles = JSON.parse(savedTiles);
         if (Array.isArray(parsedTiles)) {
-          // Ensure loaded tiles conform to the new structure or have defaults
+          // Ensure loaded tiles conform to the Tile structure, modelNumber is a string
           const migratedTiles = parsedTiles.map(tile => ({
             id: tile.id,
-            modelNumber: tile.modelNumber || (tile.type ? String(tile.type) : 'N/A'), // Basic migration/default
-            material: tile.material || 'Unknown', // Basic migration/default
+            modelNumber: tile.modelNumber || 'N/A', 
+            material: tile.material || 'Unknown',
             width: tile.width,
             height: tile.height,
             quantity: tile.quantity,
@@ -32,7 +32,6 @@ export default function InventoryPage() {
         }
       } catch (error) {
         console.error("Failed to parse tiles from localStorage", error);
-        // Potentially set empty array if parsing fails or old data is incompatible
         setTiles([]);
       }
     }
@@ -47,11 +46,32 @@ export default function InventoryPage() {
   const handleSaveTile = useCallback((data: TileFormData, id?: string) => {
     if (!isClient) return;
 
-    const tileDisplayName = `${data.modelNumber} - ${data.material}`;
+    let modelNumber = "";
+    if (data.modelNumberPrefix !== undefined && data.modelNumberPrefix !== null && String(data.modelNumberPrefix).trim() !== "") {
+      modelNumber += String(data.modelNumberPrefix);
+    }
+    if (data.modelNumberSuffix && data.modelNumberSuffix.trim() !== "") {
+      if (modelNumber.length > 0) {
+        modelNumber += "-";
+      }
+      modelNumber += data.modelNumberSuffix;
+    }
+    // If both are empty or undefined, modelNumber will be ""
+    if(modelNumber === "") modelNumber = "N/A";
+
+
+    const tileDisplayName = `${modelNumber} - ${data.material}`;
+
+    const tileDataForStorage = {
+      material: data.material,
+      width: data.width,
+      height: data.height,
+      quantity: data.quantity,
+    };
 
     if (id) { // Update existing tile
       setTiles(prevTiles =>
-        prevTiles.map(tile => (tile.id === id ? { ...tile, ...data } : tile))
+        prevTiles.map(tile => (tile.id === id ? { ...tile, ...tileDataForStorage, modelNumber } : tile))
       );
       toast({
         title: "Tile Updated",
@@ -62,7 +82,8 @@ export default function InventoryPage() {
     } else { // Add new tile
       const newTile: Tile = {
         id: crypto.randomUUID(),
-        ...data,
+        modelNumber,
+        ...tileDataForStorage,
       };
       setTiles(prevTiles => [newTile, ...prevTiles]);
       toast({

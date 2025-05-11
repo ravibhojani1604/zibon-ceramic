@@ -20,12 +20,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 
+const modelNumberSuffixOptions = ["Hl-1", "Hl-2", "d", "f"];
+const materialOptions = ["Ceramic", "Porcelain", "Stone", "Glass", "Mosaic", "Vinyl", "Other"];
+
 const tileSchema = z.object({
-  modelNumber: z.string().min(1, { message: "Model number is required." }),
+  modelNumberPrefix: z.preprocess(
+    (val) => (String(val).trim() === "" ? undefined : val), // Handle empty string for optional number
+    z.coerce.number({ invalid_type_error: "Model prefix must be a valid number."})
+      .positive({ message: "Model prefix must be a positive number if entered." })
+      .optional()
+  ),
+  modelNumberSuffix: z.string().optional(),
   material: z.string().nonempty({ message: "Material is required." }),
-  width: z.coerce.number().positive({ message: "Width must be a positive number." }),
-  height: z.coerce.number().positive({ message: "Height must be a positive number." }),
-  quantity: z.coerce.number().int().min(1, { message: "Quantity must be at least 1." }),
+  width: z.coerce.number({invalid_type_error: "Width must be a number."}).positive({ message: "Width must be a positive number." }),
+  height: z.coerce.number({invalid_type_error: "Height must be a number."}).positive({ message: "Height must be a positive number." }),
+  quantity: z.coerce.number({invalid_type_error: "Quantity must be a number."}).int().min(1, { message: "Quantity must be at least 1." }),
+}).refine(data => data.modelNumberPrefix !== undefined || (data.modelNumberSuffix && data.modelNumberSuffix.length > 0), {
+  message: "Either model number prefix or suffix must be provided.",
+  path: ["modelNumberPrefix"], // Attach error to prefix field for simplicity, or use a general form error display
 });
 
 export type TileFormData = z.infer<typeof tileSchema>;
@@ -36,24 +48,67 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
-const materialOptions = ["Ceramic", "Porcelain", "Stone", "Glass", "Mosaic", "Vinyl", "Other"];
-
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
     defaultValues: {
-      modelNumber: "",
+      modelNumberPrefix: undefined,
+      modelNumberSuffix: "",
       material: "",
-      width: "" as unknown as number, 
-      height: "" as unknown as number,
-      quantity: "" as unknown as number,
+      width: undefined, 
+      height: undefined,
+      quantity: undefined,
     },
   });
 
   useEffect(() => {
     if (editingTile) {
+      let parsedPrefix: number | undefined = undefined;
+      let parsedSuffix: string = "";
+
+      if (editingTile.modelNumber) {
+        const fullMN = editingTile.modelNumber;
+        let foundMatch = false;
+        // Sort suffixes by length descending to match longer suffixes first (e.g., "Hl-1" before "1" if "1" were an option)
+        const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
+
+        for (const opt of sortedSuffixOptions) {
+          if (fullMN.endsWith(`-${opt}`)) {
+            const prefixStr = fullMN.substring(0, fullMN.length - opt.length - 1);
+            if (prefixStr.length > 0) {
+              const num = parseFloat(prefixStr);
+              if (!isNaN(num)) parsedPrefix = num;
+            }
+            parsedSuffix = opt;
+            foundMatch = true;
+            break;
+          } else if (fullMN === opt) {
+            // Model number is just the suffix part
+            parsedSuffix = opt;
+            foundMatch = true;
+            break;
+          }
+        }
+
+        if (!foundMatch && fullMN.length > 0) {
+          // No suffix match from options, try to parse as a number for prefix
+          const num = parseFloat(fullMN);
+          if (!isNaN(num) && String(num) === fullMN) { // Is it purely a number?
+            parsedPrefix = num;
+          } else {
+            // It's some other string, attempt to extract leading number as prefix
+             const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
+             if (leadingNumberMatch) {
+                parsedPrefix = parseFloat(leadingNumberMatch[1]);
+                // Potentially, the rest could be a non-standard suffix, but we ignore it for this form
+             }
+          }
+        }
+      }
+
       form.reset({
-        modelNumber: editingTile.modelNumber || "",
+        modelNumberPrefix: parsedPrefix,
+        modelNumberSuffix: parsedSuffix,
         material: editingTile.material || "",
         width: editingTile.width,
         height: editingTile.height,
@@ -61,11 +116,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       });
     } else {
       form.reset({
-        modelNumber: "",
+        modelNumberPrefix: undefined,
+        modelNumberSuffix: "",
         material: "",
-        width: "" as unknown as number,
-        height: "" as unknown as number,
-        quantity: "" as unknown as number,
+        width: undefined,
+        height: undefined,
+        quantity: undefined,
       });
     }
   }, [editingTile, form]);
@@ -90,26 +146,66 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="modelNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Model Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., A123 or 00785" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            <div>
+              <FormLabel>Model Number</FormLabel>
+              <div className="flex gap-2 items-start mt-1">
+                <FormField
+                  control={form.control}
+                  name="modelNumberPrefix"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="e.g., 123" 
+                          {...field} 
+                          value={field.value === undefined ? '' : field.value}
+                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                          step="any"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="modelNumberSuffix"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <Select onValueChange={field.onChange} value={field.value ?? ""} defaultValue={field.value ?? ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select suffix" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {modelNumberSuffixOptions.map(option => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+               {/* Display general refine error for model number combination */}
+              {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes("Either model number prefix or suffix") && (
+                <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
               )}
-            />
+            </div>
+            
             <FormField
               control={form.control}
               name="material"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Material</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""} defaultValue={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a material" />
@@ -135,7 +231,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   <FormItem>
                     <FormLabel>Width (in)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 24" {...field} step="any" />
+                      <Input 
+                        type="number" 
+                        placeholder="e.g., 24" 
+                        {...field} 
+                        value={field.value === undefined ? '' : field.value}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                        step="any" 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -148,7 +251,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   <FormItem>
                     <FormLabel>Height (in)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 12" {...field} step="any" />
+                      <Input 
+                        type="number" 
+                        placeholder="e.g., 12" 
+                        {...field} 
+                        value={field.value === undefined ? '' : field.value}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                        step="any"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -162,7 +272,13 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 <FormItem>
                   <FormLabel>Quantity</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g., 100" {...field} />
+                    <Input 
+                      type="number" 
+                      placeholder="e.g., 100" 
+                      {...field} 
+                      value={field.value === undefined ? '' : field.value}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

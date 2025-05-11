@@ -36,7 +36,7 @@ let firestoreUnsubscribeGlobal: (() => void) | null = null;
 
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [authOperationLoading, setAuthOperationLoading] = useState(false); // Renamed for clarity internal to provider
+  const [authOperationLoading, setAuthOperationLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -108,15 +108,12 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         
         unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
           setUser(currentUser);
-          setIsInitializing(false); // Initial auth check is complete.
-          // authOperationLoading is NOT set here; it's for specific operations.
+          setIsInitializing(false);
 
           if (currentUser && (pathname === '/login' || pathname === '/register' || pathname === '/')) {
-            router.push('/inventory');
+            router.replace('/inventory');
           } else if (!currentUser && pathname !== '/login' && pathname !== '/register' && pathname !== '/') {
-             // If not logged in and trying to access a protected route (not login, register, or root)
-             // The root page ('/') handles its own redirection logic based on auth state.
-            router.push('/login');
+            router.replace('/login');
           }
         }, (error) => {
             console.error("Auth state listener error:", error);
@@ -138,12 +135,15 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       }
     };
 
-    if (isMounted) {
+    if (isMounted) { // Only initialize listener on client-side after mount
         initializeAuthListener();
     } else {
-        setUser(null);
-        setIsInitializing(false); 
+        // For SSR, or client before mount, set initializing to true but don't run listener yet.
+        // User will be null, isInitializing will be true.
+        // No, this is not quite right. If not mounted, we should reflect the initial state and not kick off async ops.
+        // The initial state for user is null, isInitializing is true.
     }
+
 
     return () => {
       if (unsubscribeAuth) {
@@ -155,7 +155,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         firestoreUnsubscribeGlobal = null;
       }
     };
-  }, [router, t, toast, pathname, isMounted]); // pathname dependency is to re-evaluate redirects if path changes while auth state is same
+  }, [router, t, toast, pathname, isMounted]);
 
 
   const login = async (data: AuthFormData) => {
@@ -209,21 +209,17 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         return;
       }
       await signOut(auth);
-      // setUser(null) and router.push('/login') will be handled by onAuthStateChanged if it's re-enabled
-      // or explicitly here if onAuthStateChanged is cleaned up before signOut completes fully.
-      // For safety, explicitly set user to null and redirect.
       setUser(null); 
       router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
-      if (authError.code === 'auth/no-current-user' || authError.code === 'auth/requires-recent-login') {
-        console.warn("Logout issue (already logged out or needs re-auth, proceeding with client-side clear):", authError.message);
-      } else {
-        handleAuthError(authError, 'logout');
-      }
+       // Even if there's an error (e.g. user already signed out, network issue), clear client state
+      console.warn("Logout error/issue:", authError.message, "Proceeding with client-side clear.");
       setUser(null); 
       router.push('/login'); 
+      // Optionally, still show a generic success or a specific warning if preferred
+      toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutCompletedClientSide') });
     } finally {
       setAuthOperationLoading(false);
     }
@@ -234,12 +230,23 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   };
 
 
-  if (isInitializing && isMounted) {
+  // SSR and initial client render (before isMounted is true, or if auth is still initializing)
+  if (!isMounted || isInitializing) {
+    // This combined condition covers:
+    // 1. Server-side rendering (!isMounted is true, isInitializing is true by default)
+    // 2. Client-side initial render BEFORE useEffect for setIsMounted runs (!isMounted is true)
+    // 3. Client-side render AFTER useEffect for setIsMounted runs BUT BEFORE auth state is resolved (isMounted is true, isInitializing is true)
+    
+    // If on client and mounted, but still initializing, show the animated SVG.
+    // Otherwise (SSR or client before mount), show the static placeholder.
+    const showAnimatedLoader = isMounted && isInitializing;
+
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
+          {showAnimatedLoader ? (
             <svg
-              className="h-16 w-16 text-primary mx-auto animate-spin" 
+              className="h-16 w-16 text-primary mx-auto animate-spin"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -253,31 +260,30 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
               <path d="M3 14h7v7H3z" />
               <path d="M14 14h7v7h-7z" />
             </svg>
+          ) : (
+            // Static placeholder for SSR and initial client render before isMounted
+            <div className="h-16 w-16 mx-auto bg-muted rounded-md" data-ai-hint="ceramic tile placeholder"></div>
+          )}
           <h1 className="text-2xl font-bold text-primary">{t('appTitle')}</h1>
           <p className="text-muted-foreground">{t('authForm.loadingPage')}</p>
+          {showAnimatedLoader ? (
             <>
               <Skeleton className="h-8 w-3/4 mx-auto" />
               <Skeleton className="h-6 w-1/2 mx-auto" />
               <Skeleton className="h-10 w-full mt-4" />
             </>
+          ) : (
+            <>
+              <div className="h-8 w-3/4 mx-auto bg-muted rounded-md"></div>
+              <div className="h-6 w-1/2 mx-auto bg-muted rounded-md"></div>
+              <div className="h-10 w-full mt-4 bg-muted rounded-md"></div>
+            </>
+          )}
         </div>
       </div>
     );
   }
-  if (!isMounted && isInitializing) { // SSR or initial client render before isMounted is true
-     return ( // Keep this simple for SSR, no SVGs or complex components if possible
-      <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
-        <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
-            <div className="h-16 w-16 mx-auto bg-muted rounded-md animate-pulse" data-ai-hint="ceramic tile placeholder"></div>
-            <h1 className="text-2xl font-bold text-primary">{t('appTitle')}</h1>
-            <p className="text-muted-foreground">{t('authForm.loadingPage')}</p>
-            <div className="animate-pulse rounded-md bg-muted h-8 w-3/4 mx-auto" />
-            <div className="animate-pulse rounded-md bg-muted h-6 w-1/2 mx-auto" />
-            <div className="animate-pulse rounded-md bg-muted h-10 w-full mt-4" />
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <AuthContext.Provider value={{ user, loading: authOperationLoading, isInitializing, login, register, logout, unsubscribeAuthState: authStateUnsubscribeGlobal || undefined }}>
@@ -297,3 +303,4 @@ export const useAuth = () => {
 export const registerFirestoreUnsubscriber = (unsubscriber: (() => void) | null) => {
   firestoreUnsubscribeGlobal = unsubscriber;
 };
+

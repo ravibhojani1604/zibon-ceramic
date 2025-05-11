@@ -32,7 +32,18 @@
     "alreadyHaveAccount": "પહેલેથી એકાઉન્ટ છે?",
     "loginLink": "લૉગિન કરો",
     "dontHaveAccount": "એકાઉન્ટ નથી?",
-    "registerLink": "રજીસ્ટર કરો"
+    "registerLink": "રજીસ્ટર કરો",
+    "authErrorTitle": "પ્રમાણીકરણમાં ભૂલ",
+    "authInitError": "પ્રમાણીકરણ શરૂ કરી શકાયું નથી. કૃપા કરીને પછીથી ફરી પ્રયાસ કરો.",
+    "loginSuccessTitle": "લૉગિન સફળ",
+    "loginSuccessDescription": "ફરી સ્વાગત છે!",
+    "loginFailedTitle": "લૉગિન નિષ્ફળ",
+    "registerSuccessTitle": "નોંધણી સફળ",
+    "registerSuccessDescription": "સ્વાગત છે!",
+    "registerFailedTitle": "નોંધણી નિષ્ફળ",
+    "logoutSuccessTitle": "લૉગઆઉટ સફળ",
+    "logoutSuccessDescription": "તમે સફળતાપૂર્વક લૉગઆઉટ થયા છો.",
+    "logoutFailedTitle": "લૉગઆઉટ નિષ્ફળ"
   },
 
   "errorMessages": {

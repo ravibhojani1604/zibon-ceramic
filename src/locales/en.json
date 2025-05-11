@@ -32,7 +32,18 @@
     "alreadyHaveAccount": "Already have an account?",
     "loginLink": "Login",
     "dontHaveAccount": "Don't have an account?",
-    "registerLink": "Register"
+    "registerLink": "Register",
+    "authErrorTitle": "Authentication Error",
+    "authInitError": "Could not initialize authentication. Please try again later.",
+    "loginSuccessTitle": "Login Successful",
+    "loginSuccessDescription": "Welcome back!",
+    "loginFailedTitle": "Login Failed",
+    "registerSuccessTitle": "Registration Successful",
+    "registerSuccessDescription": "Welcome!",
+    "registerFailedTitle": "Registration Failed",
+    "logoutSuccessTitle": "Logged Out",
+    "logoutSuccessDescription": "You have been successfully logged out.",
+    "logoutFailedTitle": "Logout Failed"
   },
 
   "errorMessages": {

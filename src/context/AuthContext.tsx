@@ -11,8 +11,10 @@ import {
 } from 'firebase/auth';
 import { getFirebaseInstances, ensureFirebaseInitialized } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton'; 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation }
+from '@/context/i18n';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -29,11 +31,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        // Ensure Firebase is initialized before trying to get auth instance
         const { auth } = await ensureFirebaseInitialized();
+        if (!auth) {
+          console.error("Firebase Auth is not initialized after ensureFirebaseInitialized.");
+          toast({
+            title: t('authForm.authErrorTitle') || "Authentication Error",
+            description: t('authForm.authInitError') || "Could not initialize authentication. Please try again later.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
           setUser(currentUser);
           setLoading(false);
@@ -42,8 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Error initializing Firebase Auth for AuthContext:", error);
         toast({
-          title: "Authentication Error",
-          description: "Could not initialize authentication. Please try again later.",
+          title: t('authForm.authErrorTitle') || "Authentication Error",
+          description: t('authForm.authInitError') || "Could not initialize authentication. Please try again later.",
           variant: "destructive",
         });
         setLoading(false); // Stop loading even if there's an error
@@ -51,19 +66,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeAuth();
-  }, [toast]);
+  }, [toast, t]);
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances();
+      if (!auth) throw new Error("Auth not initialized");
       await signInWithEmailAndPassword(auth, email, pass);
-      router.push('/inventory'); 
-      toast({ title: "Login Successful", description: "Welcome back!" });
+      router.push('/inventory');
+      toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
       console.error("Login error:", authError);
-      toast({ title: "Login Failed", description: authError.message, variant: "destructive" });
+      toast({ title: t('authForm.loginFailedTitle'), description: authError.message, variant: "destructive" });
       setLoading(false);
     }
   };
@@ -72,13 +88,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances();
+      if (!auth) throw new Error("Auth not initialized");
       await createUserWithEmailAndPassword(auth, email, pass);
       router.push('/inventory');
-      toast({ title: "Registration Successful", description: "Welcome!" });
+      toast({ title: t('authForm.registerSuccessTitle'), description: t('authForm.registerSuccessDescription')});
     } catch (error) {
       const authError = error as AuthError;
       console.error("Registration error:", authError);
-      toast({ title: "Registration Failed", description: authError.message, variant: "destructive" });
+      toast({ title: t('authForm.registerFailedTitle'), description: authError.message, variant: "destructive" });
       setLoading(false);
     }
   };
@@ -87,22 +104,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances();
+      if (!auth) throw new Error("Auth not initialized");
       await signOut(auth);
+      setUser(null); // Explicitly set user to null
       router.push('/login');
-      toast({ title: "Logged Out", description: "You have been successfully logged out." });
+      toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
       console.error("Logout error:", authError);
-      toast({ title: "Logout Failed", description: authError.message, variant: "destructive" });
+      toast({ title: t('authForm.logoutFailedTitle'), description: authError.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname === '/register' || window.location.pathname === '/')) {
-     // For auth pages or root, show children immediately or a minimal loader if preferred
-  } else if (loading) {
-    // For protected routes, show a full page loader
+  // If auth state is still loading, display a consistent full-page loader.
+  // This ensures server-rendered HTML matches client-rendered HTML during initial load, preventing hydration errors.
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
@@ -113,7 +131,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       </div>
     );
   }
-
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout }}>

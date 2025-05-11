@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to the globalTilesInventory collection for any authenticated user.
+    match /globalTilesInventory/{tileId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // If there are other collections, you would add rules for them here.
+    // Example:
+    // match /users/{userId} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
+    // }
+  }
+}

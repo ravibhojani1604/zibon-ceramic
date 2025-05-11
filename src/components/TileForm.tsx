@@ -16,13 +16,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { CardContent } from "@/components/ui/card";
+import { CardContent } 
+from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
 
 // Type constants
 const TYPE_L = "L";
@@ -61,7 +60,7 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
     (baseObjectSchema as any)[sf.name] = z.boolean().optional();
     (baseObjectSchema as any)[sf.quantityName] = z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }).optional();
   });
-  
+
   return z.object(baseObjectSchema).superRefine((data, ctx) => {
     const checkedTypesFromData = typeConfig.filter(sf => data[sf.name]);
     const prefixIsProvided = data.modelNumberPrefix !== undefined;
@@ -72,30 +71,27 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
       }
       if (checkedTypesFromData.length > 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("editModeSingleSuffixError"), path: ["modelNumberPrefix"] }); // Using existing key, consider changing if new message needed
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("editModeSingleTypeError"), path: ["modelNumberPrefix"] });
       }
       if (checkedTypesFromData.length === 0 && !prefixIsProvided) {
          ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
       }
-    } else { 
+    } else {
       // Add New Tile(s) Mode Validation
       const anyTypeChecked = checkedTypesFromData.length > 0;
 
       if (!prefixIsProvided && !anyTypeChecked) {
-        // Case: Nothing entered (no prefix, no type checked)
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
       } else if (prefixIsProvided && !anyTypeChecked) {
-        // Case: Only prefix provided, no types checked. Global quantity is required.
         if (data.quantity === undefined || data.quantity <= 0) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
         }
       } else if (anyTypeChecked) {
-        // Case: One or more types are checked. Per-type quantities are required for *all* checked types.
         for (const sf of checkedTypesFromData) {
           if (data[sf.quantityName] === undefined || Number(data[sf.quantityName]) <= 0) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: t("quantityRequiredForSuffixError", { suffix: sf.label }), // Using existing key, suffix -> type
+              message: t("quantityRequiredForType", { type: sf.label }),
               path: [sf.quantityName],
             });
           }
@@ -103,7 +99,6 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
       }
     }
 
-    // Common validation for HL types needing a prefix (applies to both add and edit)
     if ( (data.type_HL1 || data.type_HL2 || data.type_HL4 || data.type_HL5) && !prefixIsProvided ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -111,13 +106,13 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
         path: ["modelNumberPrefix"],
       });
     }
-  }).refine(data => { // Ensures at least one part of model number is present
+  }).refine(data => {
       const prefixProvided = data.modelNumberPrefix !== undefined;
       const anyTypeChecked = typeConfig.some(sf => data[sf.name]);
       return prefixProvided || anyTypeChecked;
   }, {
       message: t("modelNumberRequiredError"),
-      path: ["modelNumberPrefix"], 
+      path: ["modelNumberPrefix"],
   });
 };
 
@@ -130,17 +125,16 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
-// Helper function to create the initial default form values
 const createInitialDefaultFormValues = (): Partial<TileFormData> => {
   const values: Partial<TileFormData> = {
     modelNumberPrefix: undefined,
     width: undefined,
     height: undefined,
-    quantity: undefined, // Global quantity
+    quantity: undefined,
   };
   typeConfig.forEach(sf => {
-    values[sf.name] = false; // Type checkbox
-    values[sf.quantityName] = undefined; // Per-type quantity
+    values[sf.name] = false;
+    values[sf.quantityName] = undefined;
   });
   return values;
 };
@@ -151,7 +145,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   const isEditing = !!editingTile;
   const tileSchema = useMemo(() => getTileSchema(t, isEditing), [t, isEditing]);
   const [selectAllTypes, setSelectAllTypes] = useState(false);
-  
+
   const defaultFormValues = useMemo(() => createInitialDefaultFormValues(), []);
 
 
@@ -164,33 +158,30 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   const checkedTypeCount = useMemo(() => watchedTypes.filter(Boolean).length, [watchedTypes]);
   const watchedModelNumberPrefix = form.watch('modelNumberPrefix');
 
-  // Determine when to show the global quantity field
   const showGlobalQuantityField = isEditing || (checkedTypeCount === 0 && watchedModelNumberPrefix !== undefined);
 
   useEffect(() => {
     if (!isEditing) {
       const allChecked = typeConfig.every(sf => !!form.getValues(sf.name));
-      // Only update selectAllTypes if its state differs from allChecked to prevent loops
       if (allChecked !== selectAllTypes) {
         setSelectAllTypes(allChecked);
       }
     }
-  // form.getValues is stable, but watchedTypes change, so including them in deps array.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, form, selectAllTypes, ...watchedTypes]);
-  
+
 
   useEffect(() => {
     if (editingTile) {
-      setSelectAllTypes(false); 
+      setSelectAllTypes(false);
       const resetValues: Partial<TileFormData> = {
         width: editingTile.width,
         height: editingTile.height,
-        quantity: editingTile.quantity, 
+        quantity: editingTile.quantity,
       };
       typeConfig.forEach(sf => {
         resetValues[sf.name] = false;
-        resetValues[sf.quantityName] = undefined; 
+        resetValues[sf.quantityName] = undefined;
       });
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
@@ -198,30 +189,28 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         let mnRemainder = fullMN;
 
         const matchedTypeConf = typeConfig
-          .sort((a,b) => b.label.length - a.label.length) 
+          .sort((a,b) => b.label.length - a.label.length)
           .find(sf => fullMN.endsWith("-" + sf.label) || fullMN === sf.label);
 
         if (matchedTypeConf) {
             resetValues[matchedTypeConf.name] = true;
             if (fullMN.endsWith("-" + matchedTypeConf.label)) {
                  mnRemainder = fullMN.substring(0, fullMN.length - (matchedTypeConf.label.length + 1));
-            } else { 
+            } else {
                  mnRemainder = "";
             }
         }
-        
+
         if (mnRemainder && mnRemainder.length > 0) {
             const num = parseFloat(mnRemainder);
-            if (!isNaN(num) && String(num) === mnRemainder) { 
+            if (!isNaN(num) && String(num) === mnRemainder) {
                  resetValues.modelNumberPrefix = num;
             } else {
-                if(!matchedTypeConf) { // If no type matched but there's a remainder, it might be just a prefix
+                if(!matchedTypeConf) {
                     const numPrefix = parseFloat(fullMN);
-                    if (!isNaN(numPrefix) && String(numPrefix) === fullMN) { // check if the fullMN is a number
+                    if (!isNaN(numPrefix) && String(numPrefix) === fullMN) {
                         resetValues.modelNumberPrefix = numPrefix;
                     }
-                    // If fullMN is not a simple number, it means it was "N/A" or some unparsed string.
-                    // In this case, modelNumberPrefix remains undefined (or as per default if N/A case has specific logic)
                 }
             }
         }
@@ -229,17 +218,17 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset(resetValues);
     } else {
       form.reset(defaultFormValues);
-      if (selectAllTypes) { 
-        setSelectAllTypes(false); // Reset this when form is reset for adding new tile
+      if (selectAllTypes) {
+        setSelectAllTypes(false);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingTile, form, defaultFormValues]); 
+  }, [editingTile, form, defaultFormValues]);
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
     if (!isEditing) {
-        form.reset(defaultFormValues); 
+        form.reset(defaultFormValues);
         setSelectAllTypes(false);
     }
   };
@@ -257,8 +246,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   return (
     <CardContent className="pt-6">
       <Form {...form}>
-        <ScrollArea className="h-full max-h-[calc(85vh-160px)]"> {/* Adjusted max-h calculation */}
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pr-4"> 
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="modelNumberPrefix"
@@ -279,9 +267,9 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 </FormItem>
               )}
             />
-            
+
             <div className="space-y-2">
-                <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
+                <FormLabel>{t('typeCheckboxesLabel')}</FormLabel>
                 {!isEditing && (
                   <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
                     <FormControl>
@@ -290,15 +278,15 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         onCheckedChange={handleSelectAllChange}
                         id="select-all-types"
                         disabled={isEditing}
-                        aria-label={t('selectAllSuffixes')} 
+                        aria-label={t('selectAllTypes')}
                       />
                     </FormControl>
                     <FormLabel htmlFor="select-all-types" className="font-normal cursor-pointer select-none">
-                      {t('selectAllSuffixes')} 
+                      {t('selectAllTypes')}
                     </FormLabel>
                   </FormItem>
                 )}
-                <div className="grid grid-cols-1 gap-y-3 gap-x-3 sm:grid-cols-2"> 
+                <div className="grid grid-cols-1 gap-y-3 gap-x-3 sm:grid-cols-2">
                   {typeConfig.map(sf => (
                     <div key={sf.key} className="rounded-md border p-3 shadow-sm">
                       <div className="flex flex-row items-center justify-between space-x-3">
@@ -318,7 +306,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                                         });
                                       }
                                     } else {
-                                      field.onChange(checked); 
+                                      field.onChange(checked);
                                     }
                                   }}
                                   id={`checkbox-${sf.key}`}
@@ -335,7 +323,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                             control={form.control}
                             name={sf.quantityName}
                             render={({ field: qtyField }) => (
-                              <FormItem className="w-24"> 
+                              <FormItem className="w-24">
                                 <FormControl>
                                   <Input
                                     id={sf.quantityName}
@@ -356,10 +344,10 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                     </div>
                   ))}
                 </div>
-                {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || 
-                 form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && 
-                 !form.formState.dirtyFields.modelNumberPrefix && 
-                   Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') 
+                {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") ||
+                 form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) &&
+                 !form.formState.dirtyFields.modelNumberPrefix &&
+                   Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small')
                    && (
                    <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
                 )}
@@ -407,7 +395,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 )}
               />
             </div>
-            
+
             {showGlobalQuantityField && (
               <FormField
                 control={form.control}
@@ -433,24 +421,20 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               />
             )}
 
-            <div className="flex space-x-2 pt-2"> 
+            <div className="flex space-x-2 pt-2">
               <Button type="submit" className="w-full">
                 {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                 {isEditing ? t('updateTileButton') : t('addTileButton')}
               </Button>
-              {(isEditing || !isEditing) && ( 
-                <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); setSelectAllTypes(false); }} className="w-full">
+              <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); setSelectAllTypes(false); }} className="w-full">
                      <XCircle className="mr-2 h-4 w-4" />
                     {t('cancelButton')}
-                </Button>
-              )}
+              </Button>
             </div>
-          </form>
-        </ScrollArea>
+        </form>
       </Form>
     </CardContent>
   );
 };
 
 export default TileForm;
-

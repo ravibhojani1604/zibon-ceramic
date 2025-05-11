@@ -27,8 +27,8 @@
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number.",
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
   "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-4 or HL-5 is selected.",
-  "suffixCheckboxesLabel": "Type",
-  "selectAllSuffixes": "Select All Types",
+  "typeCheckboxesLabel": "Type",
+  "selectAllTypes": "Select All Types",
   "widthLabel": "Width (in)",
   "widthPlaceholder": "e.g., 24",
   "widthPositiveError": "Width must be a positive number.",
@@ -41,9 +41,9 @@
   "quantityPlaceholder": "e.g., 100",
   "quantityMinError": "Quantity must be at least 1.",
   "quantityRequiredError": "Quantity is required and must be a positive number.",
-  "quantityForSuffixLabel": "Qty for {{suffix}}",
-  "quantityRequiredForSuffixError": "Quantity is required for type {{suffix}}.",
-  "editModeSingleSuffixError": "Only one type can be selected in edit mode.",
+  "quantityForTypeLabel": "Qty for {{type}}",
+  "quantityRequiredForType": "Quantity is required for type {{type}}.",
+  "editModeSingleTypeError": "Only one type can be selected in edit mode.",
   "addTileButton": "Add Tile(s)",
   "updateTileButton": "Update Tile",
   "cancelButton": "Cancel",
@@ -81,4 +81,3 @@
   "toastTileDeletedTitle": "Tile Deleted",
   "toastTileDeletedDescription": "The tile \"{{modelNumber}}\" has been deleted."
 }
-

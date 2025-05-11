@@ -18,7 +18,7 @@ import {
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase'; // Corrected import path
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -61,7 +61,7 @@ export default function InventoryPage() {
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
-        if (!db) { 
+        if (!db) {
           console.error("Firestore is not initialized.");
           toast({ title: "Error", description: "Failed to connect to database.", variant: "destructive" });
           setIsLoading(false);
@@ -69,7 +69,7 @@ export default function InventoryPage() {
         }
 
         const tilesQuery = query(collection(db, TILES_COLLECTION), orderBy("createdAt", "desc"));
-        
+
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
           const fetchedTiles: Tile[] = [];
           querySnapshot.forEach((docSnapshot) => {
@@ -85,7 +85,7 @@ export default function InventoryPage() {
           });
           setTiles(fetchedTiles);
           setIsLoading(false);
-        }, (error: any) => { 
+        }, (error: any) => {
           console.error("Error fetching tiles:", error);
           toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: "destructive" });
           setIsLoading(false);
@@ -99,7 +99,7 @@ export default function InventoryPage() {
 
     setupFirestoreListener();
 
-    return () => unsubscribe(); 
+    return () => unsubscribe();
   }, [toast, t]);
 
 
@@ -118,8 +118,8 @@ export default function InventoryPage() {
       toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
       return;
     }
-    
-    const tileBaseProperties = { 
+
+    const tileBaseProperties = {
       width: data.width,
       height: data.height,
     };
@@ -132,16 +132,16 @@ export default function InventoryPage() {
         let modelNumber = prefixStr;
         if (activeTypeConfig) {
             modelNumber = prefixStr ? `${prefixStr}-${activeTypeConfig.label}` : activeTypeConfig.label;
-        } else if (!prefixStr) { 
+        } else if (!prefixStr) {
             modelNumber = "N/A";
-        } 
-        
-        if (modelNumber === "") modelNumber = "N/A"; 
-        
+        }
+
+        if (modelNumber === "") modelNumber = "N/A";
+
         const tileDocRef = doc(db, TILES_COLLECTION, id);
-        await updateDoc(tileDocRef, { 
-          ...tileBaseProperties, 
-          modelNumber, 
+        await updateDoc(tileDocRef, {
+          ...tileBaseProperties,
+          modelNumber,
           quantity: data.quantity // Global quantity for editing
         });
         toast({
@@ -151,14 +151,12 @@ export default function InventoryPage() {
         });
 
       } else { // Adding new tile(s)
-        const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>(); 
+        const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>();
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
-        
+
         if (checkedTypes.length > 0) {
-            // One or more types are checked. Use their individual quantities.
             for (const sf of checkedTypes) {
                 const model = prefixStr ? `${prefixStr}-${sf.label}` : sf.label;
-                // ALWAYS use per-type quantity from data[sf.quantityName] when a type is checked
                 const currentQuantity = data[sf.quantityName] ?? 0;
 
                 if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
@@ -170,8 +168,8 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (prefixStr) { // No types checked, but prefix is provided. Use global quantity.
-            const quantity = data.quantity ?? 0; // Use global quantity from form
+        } else if (prefixStr) {
+            const quantity = data.quantity ?? 0;
              if (quantity > 0 && !modelsToCreateMap.has(prefixStr)){
                 modelsToCreateMap.set(prefixStr, {
                      ...tileBaseProperties,
@@ -180,9 +178,9 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { // Neither prefix nor any type provided (schema should prevent this if form is empty)
-             const quantity = data.quantity ?? 0; // Fallback, though schema should require some model part
-             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { 
+        } else {
+             const quantity = data.quantity ?? 0;
+             if (quantity > 0 && !modelsToCreateMap.has("N/A")) {
                  modelsToCreateMap.set("N/A", {
                      ...tileBaseProperties,
                     modelNumber: "N/A",
@@ -191,14 +189,14 @@ export default function InventoryPage() {
                 });
             }
         }
-        
+
         const modelsToCreate = Array.from(modelsToCreateMap.keys());
         const tileDataObjects = Array.from(modelsToCreateMap.values());
 
         if (tileDataObjects.length === 0 ) {
            toast({ title: "Save Error", description: "No valid model number or quantity to save.", variant: "destructive" });
-           setIsFormOpen(false); // Close form if nothing to save.
-           return; 
+           setIsFormOpen(false);
+           return;
         }
 
         const batch = writeBatch(db);
@@ -207,7 +205,7 @@ export default function InventoryPage() {
           batch.set(newTileDocRef, tileData);
         });
         await batch.commit();
-        
+
         toast({
           title: t('toastTileAddedTitle'),
           description: t('toastTilesAddedDescription', { count: modelsToCreate.length, modelNumbers: modelsToCreate.join(', ') }),
@@ -234,7 +232,7 @@ export default function InventoryPage() {
 
   const handleDeleteTile = useCallback(async (tileId: string) => {
     const { db } = await getFirebaseInstances();
-    if (!db) { 
+    if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
       return;
     }
@@ -245,23 +243,23 @@ export default function InventoryPage() {
     try {
       const tileDocRef = doc(db, TILES_COLLECTION, tileId);
       await deleteDoc(tileDocRef);
-      
+
       if (editingTile && editingTile.id === tileId) {
-        setEditingTile(null); 
-        setIsFormOpen(false); 
+        setEditingTile(null);
+        setIsFormOpen(false);
       }
       const tileDisplayName = tileToDelete.modelNumber;
       toast({
         title: t('toastTileDeletedTitle'),
         description: t('toastTileDeletedDescription', { modelNumber: tileDisplayName }),
-        variant: "destructive", 
+        variant: "destructive",
       });
     } catch (error) {
       console.error("Error deleting tile:", error);
       toast({ title: "Delete Error", description: "Failed to delete tile. Please try again.", variant: "destructive" });
     }
   }, [toast, tiles, editingTile, t]);
-  
+
 
   const isEditingForm = !!editingTile;
 
@@ -291,11 +289,11 @@ export default function InventoryPage() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
-            <ThemeSwitcher /> 
+            <ThemeSwitcher />
           </div>
         </div>
       </header>
-      
+
       <main className="container mx-auto p-4 md:p-8 flex-grow">
         <div className="mb-6 flex justify-end">
           <Button onClick={handleAddNewTileClick}>
@@ -304,17 +302,17 @@ export default function InventoryPage() {
           </Button>
         </div>
 
-        <Dialog 
-          open={isFormOpen} 
+        <Dialog
+          open={isFormOpen}
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
-              setEditingTile(null); 
+              setEditingTile(null);
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col"> {/* Added flex flex-col */}
-            <DialogHeader>
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col">
+            <DialogHeader className="px-0 pt-0 pb-4 sticky top-0 bg-background z-10"> {/* Sticky header with background */}
               <DialogTitle className="text-xl flex items-center gap-2">
                 {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
                 {isEditingForm ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
@@ -323,16 +321,17 @@ export default function InventoryPage() {
                 {isEditingForm ? t('tileFormCardDescriptionEdit') : t('tileFormCardDescriptionAdd')}
               </DialogDescription>
             </DialogHeader>
-            {/* The TileForm itself will be scrollable via its internal ScrollArea */}
-            <TileForm 
-              onSaveTile={handleSaveTile} 
-              editingTile={editingTile}
-              onCancelEdit={handleCancelEditOnForm} 
-            />
+            <div className="flex-grow overflow-y-auto"> {/* This div will contain the scrollable form */}
+              <TileForm
+                onSaveTile={handleSaveTile}
+                editingTile={editingTile}
+                onCancelEdit={handleCancelEditOnForm}
+              />
+            </div>
           </DialogContent>
         </Dialog>
-        
-        {isLoading ? ( 
+
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
                <Card key={index} className="w-full shadow-md">
@@ -352,8 +351,8 @@ export default function InventoryPage() {
             ))}
           </div>
         ) : (
-          <TileList 
-            tiles={tiles} 
+          <TileList
+            tiles={tiles}
             onEditTile={handleEditTile}
             onDeleteTile={handleDeleteTile}
           />
@@ -366,6 +365,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    
-

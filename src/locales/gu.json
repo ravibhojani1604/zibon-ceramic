@@ -27,8 +27,8 @@
   "modelNumberPrefixInvalidError": "મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "જો દાખલ કરવામાં આવે તો મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixRequiredWithHL": "જો HL-1, HL-2, HL-4 અથવા HL-5 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
-  "suffixCheckboxesLabel": "પ્રકાર",
-  "selectAllSuffixes": "બધા પ્રકાર પસંદ કરો",
+  "typeCheckboxesLabel": "પ્રકાર",
+  "selectAllTypes": "બધા પ્રકાર પસંદ કરો",
   "widthLabel": "પહોળાઈ (ઇંચ)",
   "widthPlaceholder": "દા.ત., ૨૪",
   "widthPositiveError": "પહોળાઈ હકારાત્મક નંબર હોવી આવશ્યક છે.",
@@ -41,9 +41,9 @@
   "quantityPlaceholder": "દા.ત., ૧૦૦",
   "quantityMinError": "જથ્થો ઓછામાં ઓછો ૧ હોવો જોઈએ.",
   "quantityRequiredError": "જથ્થો આવશ્યક છે અને તે હકારાત્મક નંબર હોવો જોઈએ.",
-  "quantityForSuffixLabel": "{{suffix}} માટે જથ્થો",
-  "quantityRequiredForSuffixError": "{{suffix}} પ્રકાર માટે જથ્થો આવશ્યક છે.",
-  "editModeSingleSuffixError": "સંપાદન મોડમાં ફક્ત એક જ પ્રકાર પસંદ કરી શકાય છે.",
+  "quantityForTypeLabel": "{{type}} માટે જથ્થો",
+  "quantityRequiredForType": "{{type}} પ્રકાર માટે જથ્થો આવશ્યક છે.",
+  "editModeSingleTypeError": "સંપાદન મોડમાં ફક્ત એક જ પ્રકાર પસંદ કરી શકાય છે.",
   "addTileButton": "ટાઇલ(ટાઇલ્સ) ઉમેરો",
   "updateTileButton": "ટાઇલ અપડેટ કરો",
   "cancelButton": "રદ કરો",
@@ -81,4 +81,3 @@
   "toastTileDeletedTitle": "ટાઇલ કાઢી નાખવામાં આવી",
   "toastTileDeletedDescription": "ટાઇલ \"{{modelNumber}}\" કાઢી નાખવામાં આવી છે."
 }
-

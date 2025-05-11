@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -250,7 +249,7 @@ export default function InventoryPage() {
           </DialogContent>
         </Dialog>
         
-        {isLoading ? ( // This specific isLoading check might be redundant if the top-level one handles it.
+        {isLoading ? ( 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
               <Card key={index} className="w-full max-w-xs sm:w-72 shadow-md">

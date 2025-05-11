@@ -1,24 +1,24 @@
 
 import type {Metadata} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Added Toaster import
-import { I18nProvider } from '@/context/i18n'; // Import I18nProvider
-import { ThemeProvider } from '@/context/ThemeContext'; // Import ThemeProvider
+import { Toaster } from "@/components/ui/toaster";
+import { I18nProvider } from '@/context/i18n';
+import { ThemeProvider } from '@/context/ThemeContext';
 
-const geistSans = Geist({ // Corrected usage
+const geistSans = Geist({ 
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({ // Corrected usage
+const geistMono = Geist_Mono({ 
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: 'Zibon Ceramic', // Updated title - this will be static unless overridden by child pages
-  description: 'Track your tile inventory with Zibon Ceramic.', // Updated description - static
+  title: 'Zibon Ceramic', 
+  description: 'Track your tile inventory with Zibon Ceramic.', 
 };
 
 export default function RootLayout({

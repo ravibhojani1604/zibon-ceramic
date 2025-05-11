@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
@@ -6,13 +7,13 @@ import { initializeFirestore, type Firestore } from 'firebase/firestore';
 
 // This is the hardcoded Firebase configuration.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCh0pbSxgcoKN4cMxlWN58JL5c-PwgHjP4",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "zibon-ceramic.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "zibon-ceramic",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "zibon-ceramic.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "758308365599",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:758308365599:web:ea5eee0961d260002a3c2a",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-5SG9ZV3YRY",
+  apiKey: "AIzaSyCh0pbSxgcoKN4cMxlWN58JL5c-PwgHjP4",
+  authDomain: "zibon-ceramic.firebaseapp.com",
+  projectId: "zibon-ceramic",
+  storageBucket: "zibon-ceramic.firebasestorage.app", // Updated to match user's last provided config
+  messagingSenderId: "758308365599",
+  appId: "1:758308365599:web:ea5eee0961d260002a3c2a",
+  measurementId: "G-5SG9ZV3YRY",
 };
 
 let appInstance: FirebaseApp | undefined;
@@ -79,3 +80,4 @@ export const getFirebaseInstances = async (): Promise<{ app: FirebaseApp, auth: 
 export const ensureFirebaseInitialized = async (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
     return getFirebaseInstances();
 };
+

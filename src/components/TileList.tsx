@@ -1,10 +1,9 @@
-
 "use client";
 
 import type { FC } from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Tile } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet } from "lucide-react"; 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight } from "lucide-react"; 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -30,11 +30,16 @@ interface TileListProps {
   onDeleteTile: (tileId: string) => void;
 }
 
+const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
+
 const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<Tile | null>(null);
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
+
 
   const totalQuantity = useMemo(() => {
     return tiles.reduce((sum, tile) => sum + tile.quantity, 0);
@@ -72,6 +77,20 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
     });
   }, [tiles, searchTerm]);
 
+  const paginatedTiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTiles.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTiles, currentPage, itemsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredTiles.length / itemsPerPage));
+  }, [filteredTiles, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when search term or items per page changes
+  }, [searchTerm, itemsPerPage]);
+
+
   const handleDeleteClick = (tile: Tile) => {
     setTileToDelete(tile);
     setShowDeleteDialog(true);
@@ -98,7 +117,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
     const doc = new jsPDF();
     (doc as any).autoTable({
       head: [['Model Number', 'Width (in)', 'Height (in)', 'Quantity']],
-      body: filteredTiles.map(tile => [
+      body: filteredTiles.map(tile => [ // Export all filtered tiles, not just paginated ones
         tile.modelNumber || 'N/A',
         tile.width,
         tile.height,
@@ -126,7 +145,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
       });
       return;
     }
-    const dataToExport = filteredTiles.map(tile => ({
+    const dataToExport = filteredTiles.map(tile => ({ // Export all filtered tiles
       'Model Number': tile.modelNumber || 'N/A',
       'Width (in)': tile.width,
       'Height (in)': tile.height,
@@ -140,6 +159,19 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
       title: "Export Successful",
       description: "Tile inventory has been exported to Excel.",
     });
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(parseInt(value, 10));
+    setCurrentPage(1);
+  };
+
+  const goToPreviousPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
   };
 
 
@@ -183,14 +215,14 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
               <Layers size={48} className="mx-auto mb-2" />
               <p>No tiles added yet. Use the form to add your first tile.</p>
             </div>
-          ) : filteredTiles.length === 0 ? (
+          ) : filteredTiles.length === 0 && searchTerm ? (
             <div className="text-center text-muted-foreground py-10">
               <SearchX size={48} className="mx-auto mb-2" />
               <p>No tiles match your search criteria.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredTiles.map((tile) => (
+              {paginatedTiles.map((tile) => (
                 <Card key={tile.id} className="shadow-md hover:shadow-lg transition-shadow duration-200 animate-in fade-in-0 duration-300 ease-out">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center justify-between">
@@ -227,6 +259,48 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
             </div>
           )}
         </CardContent>
+        {filteredTiles.length > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t">
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2 sm:mb-0">
+              <span>Rows per page:</span>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="w-[70px] h-8">
+                  <SelectValue placeholder={itemsPerPage} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEMS_PER_PAGE_OPTIONS.map(option => (
+                    <SelectItem key={option} value={option.toString()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <span>Page {currentPage} of {totalPages}</span>
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardFooter>
+        )}
       </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -65,7 +65,7 @@ export default function InventoryPage() {
           });
           setTiles(fetchedTiles);
           setIsLoading(false);
-        }, (error) => {
+        }, (error: any) => { // Add error handler
           console.error("Error fetching tiles:", error);
           toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: "destructive" });
           setIsLoading(false);

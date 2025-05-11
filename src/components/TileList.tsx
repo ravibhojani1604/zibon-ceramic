@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -221,9 +222,9 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
               <p>No tiles match your search criteria.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-wrap gap-6">
               {paginatedTiles.map((tile) => (
-                <Card key={tile.id} className="shadow-md hover:shadow-lg transition-shadow duration-200 animate-in fade-in-0 duration-300 ease-out">
+                <Card key={tile.id} className="w-72 shadow-md hover:shadow-lg transition-shadow duration-200 animate-in fade-in-0 duration-300 ease-out">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center justify-between">
                       <span className="flex items-center gap-2">
@@ -232,7 +233,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       </span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm pt-2">
+                  <CardContent className="flex flex-col gap-2 text-sm pt-2">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Tag size={16} />
                       <span>Model: {tile.modelNumber || 'N/A'}</span>
@@ -245,7 +246,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       <Package size={16} />
                       <span>Quantity: {tile.quantity}</span>
                     </div>
-                     <div className="sm:col-span-2 flex justify-end space-x-2 mt-2 sm:mt-0">
+                     <div className="flex justify-end space-x-2 mt-2">
                       <Button variant="outline" size="sm" onClick={() => onEditTile(tile)}>
                         <Edit3 className="mr-1 h-4 w-4" /> Edit
                       </Button>
@@ -265,7 +266,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
               <span>Rows per page:</span>
               <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
                 <SelectTrigger className="w-[70px] h-8">
-                  <SelectValue placeholder={itemsPerPage} />
+                  <SelectValue placeholder={itemsPerPage.toString()} />
                 </SelectTrigger>
                 <SelectContent>
                   {ITEMS_PER_PAGE_OPTIONS.map(option => (
@@ -284,6 +285,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                   size="sm"
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
+                  aria-label="Go to previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   Previous
@@ -293,6 +295,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                   size="sm"
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
+                  aria-label="Go to next page"
                 >
                   Next
                   <ChevronRight className="h-4 w-4" />
@@ -325,3 +328,6 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
 };
 
 export default TileList;
+
+
+    

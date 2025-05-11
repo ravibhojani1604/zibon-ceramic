@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/context/i18n';
 import { Badge } from '@/components/ui/badge';
@@ -62,8 +62,8 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
       const parts = searchLower.split(/[\s-]+/).filter(p => p);
       let advancedMatch = false;
       if (parts.length > 1) {
-        const potentialModelPrefix = parts.slice(0, -1).join(""); // Allows for spaces in model prefix search
-        const potentialTypeSuffix = parts[parts.length - 1];
+        const potentialModelPrefix = parts.slice(0, -1).join("").toLowerCase(); 
+        const potentialTypeSuffix = parts[parts.length - 1].toLowerCase();
         if (group.modelNumberPrefix.toLowerCase().includes(potentialModelPrefix)) {
             advancedMatch = group.variants.some(v => v.typeSuffix.toLowerCase().includes(potentialTypeSuffix));
         }
@@ -106,9 +106,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
     filteredGroupedTiles.forEach(group => {
       group.variants.forEach(variant => {
         dataToExport.push({
-          'Model Number Prefix': group.modelNumberPrefix,
+          'Model Number Prefix': group.modelNumberPrefix === "N/A" ? '-' : group.modelNumberPrefix,
           'Type': variant.typeSuffix === t('noTypeSuffix') || variant.typeSuffix === "N/A" ? '-' : variant.typeSuffix,
-          'Full Model Number': variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" ? `${group.modelNumberPrefix}-${variant.typeSuffix}` : group.modelNumberPrefix,
+          'Full Model Number': variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
+                                ? `${group.modelNumberPrefix}-${variant.typeSuffix}` 
+                                : (group.modelNumberPrefix === "N/A" && variant.typeSuffix && variant.typeSuffix !== "N/A" && variant.typeSuffix !== t('noTypeSuffix') ? variant.typeSuffix : group.modelNumberPrefix),
           'Width (in)': group.width,
           'Height (in)': group.height,
           'Quantity': variant.quantity,
@@ -229,9 +231,9 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
               <p>{t('noTilesFoundSearch')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedGroupedTiles.map((group) => (
-                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col min-w-[280px] max-w-[400px] mx-auto sm:mx-0">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Box className="text-primary" size={24} aria-label="Box icon"/>
@@ -243,13 +245,13 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
                   </CardHeader>
                   <CardContent className="flex-grow pt-0 pb-3 px-4 space-y-3">
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-3 rounded-md border bg-secondary/30 hover:bg-secondary/60 transition-colors">
+                      <div key={variant.id} className="p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm">
                         <div className="flex justify-between items-center mb-1">
                            <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
                            </Badge>
-                           <span className="text-sm font-medium flex items-center gap-1">
-                             <Package size={14} />{t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
+                           <span className="text-sm font-medium">
+                             {t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
                            </span>
                         </div>
                         <div className="flex justify-end space-x-2 mt-2">
@@ -338,5 +340,3 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
 };
 
 export default TileList;
-
-    

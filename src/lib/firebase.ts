@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -26,9 +27,9 @@ if (!firebaseConfig.appId) missingKeys.push("APP_ID");
 
 if (missingKeys.length > 0) {
   console.error(
-    `Firebase configuration is incomplete. The following environment variables are missing or empty: ${missingKeys.map(key => `NEXT_PUBLIC_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`).join(", ")}. Please check your .env.local file or server environment variables.`
+    `Firebase configuration is incomplete. The following environment variables are missing or empty: ${missingKeys.map(key => `NEXT_PUBLIC_FIREBASE_${key}`).join(", ")}. Please check your .env.local file or server environment variables.`
   );
-  // appInstance and authInstance will remain undefined.
+  // appInstance, authInstance, and dbInstance will remain undefined.
 } else {
   if (typeof window !== "undefined" && !getApps().length) {
     try {
@@ -56,7 +57,7 @@ export const db = dbInstance;
 
 // Helper function to ensure Firebase is initialized before use
 export const ensureFirebaseInitialized = async (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
-  if (!app || !auth || !db) {
+  if (!appInstance || !authInstance || !dbInstance) {
     // This typically means the config was missing or initialization failed.
     // Wait a short period for async initialization if it's just a timing issue on client
     await new Promise(resolve => setTimeout(resolve, 100));

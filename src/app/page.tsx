@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card"; // Added Card, CardContent, CardHeader
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
@@ -34,6 +34,16 @@ const SUFFIX_D = "D";
 const SUFFIX_F = "F";
 const SUFFIX_HL4 = "HL-4";
 const SUFFIX_HL5 = "HL-5";
+
+const suffixConfigPage = [
+  { key: "L" as const, name: "suffix_L" as const, label: SUFFIX_L, quantityName: "quantity_L" as const },
+  { key: "HL1" as const, name: "suffix_HL1" as const, label: SUFFIX_HL1, quantityName: "quantity_HL1" as const },
+  { key: "HL2" as const, name: "suffix_HL2" as const, label: SUFFIX_HL2, quantityName: "quantity_HL2" as const },
+  { key: "HL4" as const, name: "suffix_HL4" as const, label: SUFFIX_HL4, quantityName: "quantity_HL4" as const },
+  { key: "HL5" as const, name: "suffix_HL5" as const, label: SUFFIX_HL5, quantityName: "quantity_HL5" as const },
+  { key: "D" as const, name: "suffix_D" as const, label: SUFFIX_D, quantityName: "quantity_D" as const },
+  { key: "F" as const, name: "suffix_F" as const, label: SUFFIX_F, quantityName: "quantity_F" as const },
+] as const;
 
 
 export default function InventoryPage() {
@@ -108,35 +118,32 @@ export default function InventoryPage() {
       return;
     }
     
-    const tileBaseData = {
+    const tileBaseProperties = { // Renamed for clarity
       width: data.width,
       height: data.height,
-      quantity: data.quantity,
     };
 
     const prefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix) : "";
 
     try {
       if (id) { // Editing existing tile
+        // Determine the single active suffix for editing
+        const activeSuffixConfig = suffixConfigPage.find(sf => data[sf.name]);
         let modelNumber = prefixStr;
-        let chosenSuffix = "";
-
-        if (data.suffix_L) chosenSuffix = SUFFIX_L;
-        else if (data.suffix_HL1) chosenSuffix = SUFFIX_HL1;
-        else if (data.suffix_HL2) chosenSuffix = SUFFIX_HL2;
-        else if (data.suffix_HL4) chosenSuffix = SUFFIX_HL4;
-        else if (data.suffix_HL5) chosenSuffix = SUFFIX_HL5;
-        else if (data.suffix_D) chosenSuffix = SUFFIX_D;
-        else if (data.suffix_F) chosenSuffix = SUFFIX_F;
-
-        if (chosenSuffix) {
-          modelNumber = prefixStr ? prefixStr + "-" + chosenSuffix : chosenSuffix;
-        }
+        if (activeSuffixConfig) {
+            modelNumber = prefixStr ? `${prefixStr}-${activeSuffixConfig.label}` : activeSuffixConfig.label;
+        } else if (!prefixStr) { // No prefix and no suffix selected, but it's an edit (should not happen with validation)
+            modelNumber = "N/A";
+        } // if prefixStr exists and no suffix, modelNumber is just prefixStr
         
         if (modelNumber === "") modelNumber = "N/A"; 
         
         const tileDocRef = doc(db, TILES_COLLECTION, id);
-        await updateDoc(tileDocRef, { ...tileBaseData, modelNumber });
+        await updateDoc(tileDocRef, { 
+          ...tileBaseProperties, 
+          modelNumber, 
+          quantity: data.quantity // Global quantity for editing
+        });
         toast({
           title: t('toastTileUpdatedTitle'),
           description: t('toastTileUpdatedDescription', { modelNumber }),
@@ -144,43 +151,46 @@ export default function InventoryPage() {
         });
 
       } else { // Adding new tile(s)
-        const modelsToCreateMap = new Map<string, any>(); 
+        const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>(); 
+        const checkedSuffixes = suffixConfigPage.filter(sf => data[sf.name]);
+        const multipleSuffixesChecked = checkedSuffixes.length > 1;
 
-        const addModel = (suffix: string) => {
-            const model = prefixStr ? prefixStr + "-" + suffix : suffix;
-            if (!modelsToCreateMap.has(model)) {
-                 modelsToCreateMap.set(model, {
-                    ...tileBaseData,
-                    modelNumber: model,
-                    createdAt: serverTimestamp(),
-                });
+        if (checkedSuffixes.length > 0) {
+            for (const sf of checkedSuffixes) {
+                const model = prefixStr ? `${prefixStr}-${sf.label}` : sf.label;
+                let currentQuantity: number;
+                if (multipleSuffixesChecked) {
+                    currentQuantity = data[sf.quantityName] ?? 0; // Use per-suffix quantity
+                } else {
+                    currentQuantity = data.quantity ?? 0; // Use global quantity
+                }
+
+                if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
+                     modelsToCreateMap.set(model, {
+                        ...tileBaseProperties,
+                        modelNumber: model,
+                        quantity: currentQuantity,
+                        createdAt: serverTimestamp(),
+                    });
+                }
             }
-        };
-        
-        if (data.suffix_L) addModel(SUFFIX_L);
-        if (data.suffix_HL1) addModel(SUFFIX_HL1);
-        if (data.suffix_HL2) addModel(SUFFIX_HL2);
-        if (data.suffix_HL4) addModel(SUFFIX_HL4);
-        if (data.suffix_HL5) addModel(SUFFIX_HL5);
-        if (data.suffix_D) addModel(SUFFIX_D);
-        if (data.suffix_F) addModel(SUFFIX_F);
-
-
-        if (modelsToCreateMap.size === 0 && prefixStr) {
-            if (!modelsToCreateMap.has(prefixStr)){
+        } else if (prefixStr) { // Only prefix provided
+            const quantity = data.quantity ?? 0;
+             if (quantity > 0 && !modelsToCreateMap.has(prefixStr)){
                 modelsToCreateMap.set(prefixStr, {
-                     ...tileBaseData,
+                     ...tileBaseProperties,
                     modelNumber: prefixStr,
+                    quantity: quantity,
                     createdAt: serverTimestamp(),
                 });
             }
-        }
-        
-        if (modelsToCreateMap.size === 0 && !prefixStr) {
-             if (!modelsToCreateMap.has("N/A")) {
+        } else { // Neither prefix nor any suffix provided (should be caught by validation)
+             const quantity = data.quantity ?? 0;
+             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { // Default to N/A if no other info and quantity > 0
                  modelsToCreateMap.set("N/A", {
-                     ...tileBaseData,
+                     ...tileBaseProperties,
                     modelNumber: "N/A",
+                    quantity: quantity,
                     createdAt: serverTimestamp(),
                 });
             }
@@ -191,7 +201,7 @@ export default function InventoryPage() {
 
 
         if (tileDataObjects.length === 0 ) {
-           toast({ title: "Save Error", description: "No valid model number to save.", variant: "destructive" });
+           toast({ title: "Save Error", description: "No valid model number or quantity to save.", variant: "destructive" });
            return; 
         }
 
@@ -328,7 +338,7 @@ export default function InventoryPage() {
         {isLoading ? ( 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
-              <Card key={index} className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-xs xl:max-w-sm shadow-md">
+               <Card key={index} className="w-full shadow-md"> {/* Removed max-w-xs etc. for consistency with TileList */}
                 <CardHeader className="pb-2">
                   <Skeleton className="h-6 w-3/4" />
                 </CardHeader>

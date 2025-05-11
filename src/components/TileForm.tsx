@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,41 +31,94 @@ const SUFFIX_HL5 = "HL-5";
 const SUFFIX_D = "D";
 const SUFFIX_F = "F";
 
+const suffixConfig = [
+  { key: "L" as const, name: "suffix_L" as const, label: SUFFIX_L, quantityName: "quantity_L" as const },
+  { key: "HL1" as const, name: "suffix_HL1" as const, label: SUFFIX_HL1, quantityName: "quantity_HL1" as const },
+  { key: "HL2" as const, name: "suffix_HL2" as const, label: SUFFIX_HL2, quantityName: "quantity_HL2" as const },
+  { key: "HL4" as const, name: "suffix_HL4" as const, label: SUFFIX_HL4, quantityName: "quantity_HL4" as const },
+  { key: "HL5" as const, name: "suffix_HL5" as const, label: SUFFIX_HL5, quantityName: "quantity_HL5" as const },
+  { key: "D" as const, name: "suffix_D" as const, label: SUFFIX_D, quantityName: "quantity_D" as const },
+  { key: "F" as const, name: "suffix_F" as const, label: SUFFIX_F, quantityName: "quantity_F" as const },
+] as const;
 
-const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string) => z.object({
-  modelNumberPrefix: z.preprocess(
-    (val) => (String(val).trim() === "" ? undefined : val),
-    z.coerce.number({ invalid_type_error: t("modelNumberPrefixInvalidError")})
-      .positive({ message: t("modelNumberPrefixPositiveError") })
-      .optional()
-  ),
-  suffix_L: z.boolean().optional(),
-  suffix_HL1: z.boolean().optional(),
-  suffix_HL2: z.boolean().optional(),
-  suffix_D: z.boolean().optional(),
-  suffix_F: z.boolean().optional(),
-  suffix_HL4: z.boolean().optional(),
-  suffix_HL5: z.boolean().optional(),
-  width: z.coerce.number({invalid_type_error: t("widthRequiredError")}).positive({ message: t("widthPositiveError") }),
-  height: z.coerce.number({invalid_type_error: t("heightRequiredError")}).positive({ message: t("heightPositiveError") }),
-  quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }),
-}).refine(data => {
-  const prefixProvided = data.modelNumberPrefix !== undefined;
-  const anySuffixChecked = data.suffix_L || data.suffix_HL1 || data.suffix_HL2 || data.suffix_D || data.suffix_F || data.suffix_HL4 || data.suffix_HL5;
-  return prefixProvided || anySuffixChecked;
-}, {
-  message: t("modelNumberRequiredError"),
-  path: ["modelNumberPrefix"], 
-}).refine(data => {
-  // HL-1, HL-2, HL-4, HL-5 require a prefix
-  if ((data.suffix_HL1 || data.suffix_HL2 || data.suffix_HL4 || data.suffix_HL5) && data.modelNumberPrefix === undefined) {
-    return false;
-  }
-  return true;
-}, {
-  message: t("modelNumberPrefixRequiredWithHL"),
-  path: ["modelNumberPrefix"],
-});
+
+const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string, isEditing: boolean) => {
+  const baseObjectSchema = {
+    modelNumberPrefix: z.preprocess(
+      (val) => (String(val).trim() === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: t("modelNumberPrefixInvalidError")})
+        .positive({ message: t("modelNumberPrefixPositiveError") })
+        .optional()
+    ),
+    width: z.coerce.number({invalid_type_error: t("widthRequiredError")}).positive({ message: t("widthPositiveError") }),
+    height: z.coerce.number({invalid_type_error: t("heightRequiredError")}).positive({ message: t("heightPositiveError") }),
+    quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }).optional(), // Global quantity
+  };
+
+  // Add suffix booleans and individual quantity fields to the schema object
+  suffixConfig.forEach(sf => {
+    (baseObjectSchema as any)[sf.name] = z.boolean().optional();
+    (baseObjectSchema as any)[sf.quantityName] = z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }).optional();
+  });
+  
+  return z.object(baseObjectSchema).superRefine((data, ctx) => {
+    const checkedSuffixesFromData = suffixConfig.filter(sf => data[sf.name]);
+
+    if (isEditing) {
+      if (data.quantity === undefined || data.quantity <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
+      }
+      if (checkedSuffixesFromData.length > 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("editModeSingleSuffixError"), path: ["modelNumberPrefix"] }); // General path for simplicity
+      }
+       if (checkedSuffixesFromData.length === 0 && data.modelNumberPrefix === undefined) {
+         ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
+       }
+    } else { // Adding new tile(s)
+      if (checkedSuffixesFromData.length === 0) {
+        // No suffixes checked. If prefix is provided, global quantity is required. If prefix is also not provided, specific error.
+        if (data.modelNumberPrefix !== undefined && (data.quantity === undefined || data.quantity <= 0) ) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
+        } else if (data.modelNumberPrefix === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
+        }
+      } else if (checkedSuffixesFromData.length === 1) {
+        // One suffix checked, global quantity required
+        if (data.quantity === undefined || data.quantity <= 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
+        }
+      } else { // Multiple suffixes checked
+        // Per-suffix quantities are required
+        for (const sf of checkedSuffixesFromData) {
+          if (data[sf.quantityName] === undefined || Number(data[sf.quantityName]) <= 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: t("quantityRequiredForSuffixError", { suffix: sf.label }),
+              path: [sf.quantityName],
+            });
+          }
+        }
+      }
+    }
+
+    // Common validation for model number prefix and HL suffixes
+    const prefixProvided = data.modelNumberPrefix !== undefined;
+    if ( (data.suffix_HL1 || data.suffix_HL2 || data.suffix_HL4 || data.suffix_HL5) && !prefixProvided ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: t("modelNumberPrefixRequiredWithHL"),
+        path: ["modelNumberPrefix"],
+      });
+    }
+  }).refine(data => {
+      const prefixProvided = data.modelNumberPrefix !== undefined;
+      const anySuffixChecked = suffixConfig.some(sf => data[sf.name]);
+      return prefixProvided || anySuffixChecked;
+  }, {
+      message: t("modelNumberRequiredError"),
+      path: ["modelNumberPrefix"],
+  });
+};
 
 
 export type TileFormData = z.infer<ReturnType<typeof getTileSchema>>;
@@ -76,129 +129,93 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
-const suffixFields: (keyof TileFormData)[] = [
-  "suffix_L", "suffix_HL1", "suffix_HL2", "suffix_HL4", "suffix_HL5", "suffix_D", "suffix_F"
-];
-
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const { t } = useTranslation();
   const isEditing = !!editingTile;
-  const tileSchema = useMemo(() => getTileSchema(t), [t]);
+  const tileSchema = useMemo(() => getTileSchema(t, isEditing), [t, isEditing]);
   const [selectAllSuffixes, setSelectAllSuffixes] = useState(false);
+  
+  const defaultFormValues: Partial<TileFormData> = {
+    modelNumberPrefix: undefined,
+    width: undefined,
+    height: undefined,
+    quantity: undefined,
+  };
+  suffixConfig.forEach(sf => {
+    defaultFormValues[sf.name] = false;
+    defaultFormValues[sf.quantityName] = undefined;
+  });
 
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
-    defaultValues: {
-      modelNumberPrefix: undefined,
-      suffix_L: false,
-      suffix_HL1: false,
-      suffix_HL2: false,
-      suffix_D: false,
-      suffix_F: false,
-      suffix_HL4: false,
-      suffix_HL5: false,
-      width: undefined,
-      height: undefined,
-      quantity: undefined,
-    },
+    defaultValues: defaultFormValues,
   });
 
-  const watchedSuffixes = form.watch(suffixFields);
+  const watchedSuffixes = suffixConfig.map(sf => form.watch(sf.name));
+  const checkedSuffixCount = useMemo(() => watchedSuffixes.filter(Boolean).length, [watchedSuffixes]);
+  
+  const showGlobalQuantity = isEditing || checkedSuffixCount <= 1;
 
   useEffect(() => {
     if (!isEditing) {
-      const allChecked = suffixFields.every(field => !!form.getValues(field));
+      const allChecked = suffixConfig.every(sf => !!form.getValues(sf.name));
       if (allChecked !== selectAllSuffixes) {
         setSelectAllSuffixes(allChecked);
       }
     }
-  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]);
-
+  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]); // Added selectAllSuffixes dependency
 
   useEffect(() => {
     if (editingTile) {
-      setSelectAllSuffixes(false); // Disable select all on edit mode
-      let parsedPrefix: number | undefined = undefined;
-      let parsedSuffix_L = false;
-      let parsedSuffix_HL1 = false;
-      let parsedSuffix_HL2 = false;
-      let parsedSuffix_D = false;
-      let parsedSuffix_F = false;
-      let parsedSuffix_HL4 = false;
-      let parsedSuffix_HL5 = false;
+      setSelectAllSuffixes(false); 
+      const resetValues: Partial<TileFormData> = {
+        width: editingTile.width,
+        height: editingTile.height,
+        quantity: editingTile.quantity,
+      };
+      suffixConfig.forEach(sf => {
+        resetValues[sf.name] = false;
+        resetValues[sf.quantityName] = undefined;
+      });
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let mnRemainder = fullMN;
+        let prefixStr = "";
 
-        // Order of checks: Longer, more specific suffixes first.
-        if (fullMN.endsWith("-" + SUFFIX_HL1)) {
-          parsedSuffix_HL1 = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL1.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_HL2)) {
-          parsedSuffix_HL2 = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL2.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_HL4)) {
-          parsedSuffix_HL4 = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL4.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_HL5)) {
-          parsedSuffix_HL5 = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL5.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_L)) {
-          parsedSuffix_L = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_L.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_D)) {
-          parsedSuffix_D = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_D.length + 1));
-        } else if (fullMN.endsWith("-" + SUFFIX_F)) {
-          parsedSuffix_F = true;
-          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_F.length + 1));
-        } else if (fullMN === SUFFIX_L) { 
-          parsedSuffix_L = true;
-          mnRemainder = "";
-        } else if (fullMN === SUFFIX_D) { 
-          parsedSuffix_D = true;
-          mnRemainder = "";
-        } else if (fullMN === SUFFIX_F) { 
-          parsedSuffix_F = true;
-          mnRemainder = "";
+        const matchedSuffixConf = suffixConfig
+          .sort((a,b) => b.label.length - a.label.length) // Longer suffixes first
+          .find(sf => fullMN.endsWith("-" + sf.label) || fullMN === sf.label);
+
+        if (matchedSuffixConf) {
+            resetValues[matchedSuffixConf.name] = true;
+            if (fullMN.endsWith("-" + matchedSuffixConf.label)) {
+                 mnRemainder = fullMN.substring(0, fullMN.length - (matchedSuffixConf.label.length + 1));
+            } else { // fullMN === sf.label
+                 mnRemainder = "";
+            }
         }
         
         if (mnRemainder && mnRemainder.length > 0) {
             const num = parseFloat(mnRemainder);
             if (!isNaN(num) && String(num) === mnRemainder) { 
-                 parsedPrefix = num;
+                 resetValues.modelNumberPrefix = num;
+            } else {
+                // If remainder is not a number, it might be a prefixless model or error in data
+                // For now, if a suffix was matched, we assume remainder is prefix.
+                // If no suffix matched, fullMN is the prefix (if numeric)
+                if(!matchedSuffixConf) {
+                    const numPrefix = parseFloat(fullMN);
+                    if (!isNaN(numPrefix) && String(numPrefix) === fullMN) {
+                        resetValues.modelNumberPrefix = numPrefix;
+                    }
+                }
             }
         }
       }
-      
-      form.reset({
-        modelNumberPrefix: parsedPrefix,
-        suffix_L: parsedSuffix_L,
-        suffix_HL1: parsedSuffix_HL1,
-        suffix_HL2: parsedSuffix_HL2,
-        suffix_D: parsedSuffix_D,
-        suffix_F: parsedSuffix_F,
-        suffix_HL4: parsedSuffix_HL4,
-        suffix_HL5: parsedSuffix_HL5,
-        width: editingTile.width,
-        height: editingTile.height,
-        quantity: editingTile.quantity,
-      });
+      form.reset(resetValues);
     } else {
-      form.reset({
-        modelNumberPrefix: undefined,
-        suffix_L: false,
-        suffix_HL1: false,
-        suffix_HL2: false,
-        suffix_D: false,
-        suffix_F: false,
-        suffix_HL4: false,
-        suffix_HL5: false,
-        width: undefined,
-        height: undefined,
-        quantity: undefined,
-      });
+      form.reset(defaultFormValues);
       setSelectAllSuffixes(false);
     }
   }, [editingTile, form]); 
@@ -206,17 +223,20 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
     if (!isEditing) {
-        form.reset(); 
+        form.reset(defaultFormValues); 
         setSelectAllSuffixes(false);
     }
   };
 
-  const handleSelectAllChange = (checked: boolean) => {
-    setSelectAllSuffixes(checked);
-    suffixFields.forEach(field => {
-      form.setValue(field, checked, { shouldValidate: true });
-    });
+  const handleSelectAllChange = (checked: boolean | "indeterminate") => {
+    if (typeof checked === 'boolean') {
+      setSelectAllSuffixes(checked);
+      suffixConfig.forEach(sf => {
+        form.setValue(sf.name, checked, { shouldValidate: true });
+      });
+    }
   };
+
 
   return (
     <CardContent className="pt-6">
@@ -260,47 +280,60 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   </FormLabel>
                 </FormItem>
               )}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {[
-                  { name: "suffix_L" as const, label: SUFFIX_L },
-                  { name: "suffix_HL1" as const, label: SUFFIX_HL1 },
-                  { name: "suffix_HL2" as const, label: SUFFIX_HL2 },
-                  { name: "suffix_HL4" as const, label: SUFFIX_HL4 },
-                  { name: "suffix_HL5" as const, label: SUFFIX_HL5 },
-                  { name: "suffix_D" as const, label: SUFFIX_D },
-                  { name: "suffix_F" as const, label: SUFFIX_F },
-                ].map(suffix => (
-                  <FormField
-                    key={suffix.name}
-                    control={form.control}
-                    name={suffix.name}
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={(checked) => {
-                              if (isEditing) {
-                                // When editing, only one suffix can be active.
-                                if (checked) {
-                                  suffixFields.forEach(sField => {
-                                    form.setValue(sField, sField === suffix.name);
-                                  });
+              <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
+                {suffixConfig.map(sf => (
+                  <div key={sf.key} className="space-y-2">
+                    <FormField
+                      control={form.control}
+                      name={sf.name}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                if (isEditing) {
+                                  if (typeof checked === 'boolean') {
+                                    suffixConfig.forEach(s => {
+                                      form.setValue(s.name, s.name === sf.name ? checked : false, {shouldValidate: true});
+                                    });
+                                  }
                                 } else {
-                                   field.onChange(false); // Allow unchecking
+                                  field.onChange(checked); 
                                 }
-                              } else {
-                                field.onChange(checked); // Allow multiple checks when adding
-                              }
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          {suffix.label}
-                        </FormLabel>
-                      </FormItem>
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            {sf.label}
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                    {!showGlobalQuantity && form.getValues(sf.name) && !isEditing && (
+                      <FormField
+                        control={form.control}
+                        name={sf.quantityName}
+                        render={({ field: qtyField }) => (
+                          <FormItem className="pl-3">
+                            <FormLabel htmlFor={sf.quantityName} className="text-xs">{t('quantityForSuffixLabel', {suffix: sf.label})}</FormLabel>
+                            <FormControl>
+                              <Input
+                                id={sf.quantityName}
+                                type="number"
+                                placeholder={t('quantityPlaceholder')}
+                                {...qtyField}
+                                value={qtyField.value ?? ''}
+                                onChange={e => qtyField.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                className="h-8 text-sm"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+                  </div>
                 ))}
               </div>
               {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
@@ -350,40 +383,39 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               )}
             />
           </div>
-          <FormField
-            control={form.control}
-            name="quantity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('quantityLabel')}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder={t('quantityPlaceholder')}
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        field.onChange(undefined);
-                      } else {
-                        const num = parseInt(val, 10);
-                        field.onChange(isNaN(num) ? undefined : num);
-                      }
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+
+          {showGlobalQuantity && (
+            <FormField
+              control={form.control}
+              name="quantity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('quantityLabel')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder={t('quantityPlaceholder')}
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        field.onChange(val === '' ? undefined : parseInt(val, 10));
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <div className="flex space-x-2">
             <Button type="submit" className="w-full">
               {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
               {isEditing ? t('updateTileButton') : t('addTileButton')}
             </Button>
             {isEditing && (
-              <Button type="button" variant="outline" onClick={() => { form.reset(); onCancelEdit();}} className="w-full">
+              <Button type="button" variant="outline" onClick={() => { form.reset(defaultFormValues); onCancelEdit();}} className="w-full">
                 <XCircle className="mr-2 h-4 w-4" />
                 {t('cancelButton')}
               </Button>
@@ -396,3 +428,4 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 };
 
 export default TileForm;
+

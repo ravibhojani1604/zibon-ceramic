@@ -14,34 +14,63 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
 
-const modelNumberSuffixOptions = ["L", "HL-1", "HL-2", "HL-3", "D", "F"];
-const FORM_FIELD_EMPTY_SUFFIX_VALUE = ""; 
+// Suffixes for the Select dropdown
+const SELECT_SUFFIX_OPTIONS = ["L", "HL-3", "D", "F"] as const;
+// Suffixes for Checkboxes
+const CHECKBOX_SUFFIX_HL1 = "HL-1";
+const CHECKBOX_SUFFIX_HL2 = "HL-2";
+
+const FORM_FIELD_EMPTY_SUFFIX_VALUE = "";
 const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_";
 
 
-const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string) => z.object({
+const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string, isEditing: boolean) => z.object({
   modelNumberPrefix: z.preprocess(
-    (val) => (String(val).trim() === "" ? undefined : val), 
+    (val) => (String(val).trim() === "" ? undefined : val),
     z.coerce.number({ invalid_type_error: t("modelNumberPrefixInvalidError")})
       .positive({ message: t("modelNumberPrefixPositiveError") })
       .optional()
   ),
-  modelNumberSuffix: z.string().optional(),
+  modelNumberSuffixSelect: z.string().optional(), // Value from SELECT_SUFFIX_OPTIONS or SELECT_ITEM_VALUE_FOR_NONE_SUFFIX
+  [CHECKBOX_SUFFIX_HL1]: z.boolean().optional(),
+  [CHECKBOX_SUFFIX_HL2]: z.boolean().optional(),
   width: z.coerce.number({invalid_type_error: t("widthRequiredError")}).positive({ message: t("widthPositiveError") }),
   height: z.coerce.number({invalid_type_error: t("heightRequiredError")}).positive({ message: t("heightPositiveError") }),
   quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }),
-}).refine(data => data.modelNumberPrefix !== undefined || (data.modelNumberSuffix && data.modelNumberSuffix !== FORM_FIELD_EMPTY_SUFFIX_VALUE && data.modelNumberSuffix !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX), {
+}).refine(data => {
+  const prefixProvided = data.modelNumberPrefix !== undefined;
+  const selectSuffixProvided = data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect !== FORM_FIELD_EMPTY_SUFFIX_VALUE;
+  const hl1Checked = data[CHECKBOX_SUFFIX_HL1];
+  const hl2Checked = data[CHECKBOX_SUFFIX_HL2];
+
+  return prefixProvided || selectSuffixProvided || hl1Checked || hl2Checked;
+}, {
   message: t("modelNumberRequiredError"),
-  path: ["modelNumberPrefix"], 
+  path: ["modelNumberPrefix"], // General error displayed under prefix, or make a dedicated error display spot
+}).refine(data => {
+  // This refine is specifically for add mode. In edit mode, this check is not strictly needed as we parse an existing valid model.
+  if (isEditing) return true;
+  
+  const prefixProvided = data.modelNumberPrefix !== undefined;
+  const hl1Checked = data[CHECKBOX_SUFFIX_HL1];
+  const hl2Checked = data[CHECKBOX_SUFFIX_HL2];
+  if ((hl1Checked || hl2Checked) && !prefixProvided) return false;
+  return true;
+}, {
+  message: t("modelNumberPrefixRequiredWithHL"),
+  path: ["modelNumberPrefix"]
 });
+
 
 export type TileFormData = z.infer<ReturnType<typeof getTileSchema>>;
 
@@ -53,14 +82,17 @@ interface TileFormProps {
 
 const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
   const { t } = useTranslation();
-  const tileSchema = useMemo(() => getTileSchema(t), [t]);
+  const isEditing = !!editingTile;
+  const tileSchema = useMemo(() => getTileSchema(t, isEditing), [t, isEditing]);
 
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
     defaultValues: {
       modelNumberPrefix: undefined,
-      modelNumberSuffix: FORM_FIELD_EMPTY_SUFFIX_VALUE, 
-      width: undefined, 
+      modelNumberSuffixSelect: SELECT_ITEM_VALUE_FOR_NONE_SUFFIX,
+      [CHECKBOX_SUFFIX_HL1]: false,
+      [CHECKBOX_SUFFIX_HL2]: false,
+      width: undefined,
       height: undefined,
       quantity: undefined,
     },
@@ -69,62 +101,60 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   useEffect(() => {
     if (editingTile) {
       let parsedPrefix: number | undefined = undefined;
-      let parsedSuffix: string = FORM_FIELD_EMPTY_SUFFIX_VALUE;
+      let parsedSuffixSelect: string = SELECT_ITEM_VALUE_FOR_NONE_SUFFIX;
+      let parsedHl1 = false;
+      let parsedHl2 = false;
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
-        let foundMatch = false;
-        
-        const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
+        let mnRemainder = fullMN;
 
-        for (const opt of sortedSuffixOptions) {
-          if (fullMN.endsWith(`-${opt}`)) {
-            const prefixStr = fullMN.substring(0, fullMN.length - opt.length - 1);
-            if (prefixStr.length > 0) {
-              const num = parseFloat(prefixStr);
-              if (!isNaN(num)) parsedPrefix = num;
+        // Check for HL suffixes first as they are more specific
+        if (fullMN.endsWith("-" + CHECKBOX_SUFFIX_HL1)) {
+          parsedHl1 = true;
+          mnRemainder = fullMN.substring(0, fullMN.length - (CHECKBOX_SUFFIX_HL1.length + 1));
+        } else if (fullMN.endsWith("-" + CHECKBOX_SUFFIX_HL2)) {
+          parsedHl2 = true;
+          mnRemainder = fullMN.substring(0, fullMN.length - (CHECKBOX_SUFFIX_HL2.length + 1));
+        }
+
+        // If HL suffix was found, mnRemainder is now the prefix part
+        // If no HL suffix, mnRemainder is still fullMN, try to parse select suffix
+        if (!parsedHl1 && !parsedHl2) {
+            const sortedSelectOptions = [...SELECT_SUFFIX_OPTIONS].sort((a, b) => b.length - a.length);
+            for (const opt of sortedSelectOptions) {
+                if (fullMN.endsWith("-" + opt)) {
+                    parsedSuffixSelect = opt;
+                    mnRemainder = fullMN.substring(0, fullMN.length - (opt.length + 1));
+                    break;
+                } else if (fullMN === opt) { // Suffix is the entire model number
+                    parsedSuffixSelect = opt;
+                    mnRemainder = ""; // No prefix
+                    break;
+                }
             }
-            parsedSuffix = opt;
-            foundMatch = true;
-            break;
-          } else if (fullMN === opt && !sortedSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || sortedSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
-            // Handles cases where model number is just a suffix, e.g. "L"
-            // And ensure it's not a prefix of another suffix (e.g. "H" vs "HL-1")
-            // Or that no other suffix is part of a combined model number like "123-L-D" (though current logic may not fully support this complex case)
-            if (!parsedPrefix && !parsedSuffix) { // only if nothing else matched
-                parsedSuffix = opt;
-                foundMatch = true;
-                break;
-            }
-          }
         }
         
-        if (!foundMatch && fullMN.length > 0) {
-            // Attempt to parse as a pure number if no suffix match
-            const num = parseFloat(fullMN);
-            if (!isNaN(num) && String(num) === fullMN) { 
-                parsedPrefix = num;
+        // Parse prefix from whatever remains
+        if (mnRemainder && mnRemainder.length > 0) {
+            const num = parseFloat(mnRemainder);
+            if (!isNaN(num) && String(num) === mnRemainder) {
+                 parsedPrefix = num;
             } else {
-                // Fallback: try to extract leading number if any part is non-numeric and not a known suffix
-                 const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
-                 if (leadingNumberMatch) {
-                    parsedPrefix = parseFloat(leadingNumberMatch[1]);
-                    // Potentially, the rest could be a custom suffix, but current logic doesn't store custom suffix input
-                 }
-                 // If no numeric prefix and no known suffix, it might be a fully custom model number
-                 // or a suffix-only model number not caught above.
-                 // For now, if it's not purely numeric, and not a known suffix ending, 
-                 // we'll assume it's either a custom suffix or prefix was not number.
-                 // The form currently doesn't have a field for "custom suffix text", so this part is tricky.
-                 // Let's assume if not parsed as prefix/suffix, it's a prefix that might not be a number, or custom.
-                 // We'll assign it to prefix field if it's numeric, otherwise leave suffix blank.
-                 // This part of logic might need refinement based on how "custom" model numbers are structured.
+                // If remainder is not a clean number, and it wasn't a select suffix,
+                // it might be a prefix that's not purely numeric or a custom unhandled model.
+                // For simplicity, if it's not a number, we leave prefix as undefined.
+                // This might happen if model was "CUSTOM-HL-1" or "TEXTPART-L".
+                // Current form doesn't support non-numeric prefixes well.
             }
         }
       }
+      
       form.reset({
         modelNumberPrefix: parsedPrefix,
-        modelNumberSuffix: parsedSuffix, 
+        modelNumberSuffixSelect: parsedSuffixSelect,
+        [CHECKBOX_SUFFIX_HL1]: parsedHl1,
+        [CHECKBOX_SUFFIX_HL2]: parsedHl2,
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
@@ -132,22 +162,23 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     } else {
       form.reset({
         modelNumberPrefix: undefined,
-        modelNumberSuffix: FORM_FIELD_EMPTY_SUFFIX_VALUE, 
+        modelNumberSuffixSelect: SELECT_ITEM_VALUE_FOR_NONE_SUFFIX,
+        [CHECKBOX_SUFFIX_HL1]: false,
+        [CHECKBOX_SUFFIX_HL2]: false,
         width: undefined,
         height: undefined,
         quantity: undefined,
       });
     }
-  }, [editingTile, form]);
+  }, [editingTile, form, t]); // Added t to dependencies as it's used in schema
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
-    if (!editingTile) { 
-        form.reset(); 
+    if (!isEditing) {
+        form.reset(); // Reset only if adding new tile
     }
   };
 
-  const isEditing = !!editingTile;
 
   return (
     <Card className="shadow-none border-none">
@@ -163,12 +194,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   render={({ field }) => (
                     <FormItem className="flex-1">
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder={t('modelNumberPrefixPlaceholder')} 
-                          {...field} 
-                          value={field.value ?? ''} 
-                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                        <Input
+                          type="number"
+                          placeholder={t('modelNumberPrefixPlaceholder')}
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                           step="any"
                         />
                       </FormControl>
@@ -176,20 +207,17 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                     </FormItem>
                   )}
                 />
-                <FormField
+                 <FormField
                   control={form.control}
-                  name="modelNumberSuffix"
+                  name="modelNumberSuffixSelect"
                   render={({ field }) => (
                     <FormItem className="flex-1">
-                      <Select 
+                      <Select
                         onValueChange={(selectedValue) => {
-                          field.onChange(selectedValue === SELECT_ITEM_VALUE_FOR_NONE_SUFFIX ? FORM_FIELD_EMPTY_SUFFIX_VALUE : selectedValue);
+                          field.onChange(selectedValue);
                         }}
-                        value={
-                          (field.value === FORM_FIELD_EMPTY_SUFFIX_VALUE || typeof field.value === 'undefined')
-                            ? SELECT_ITEM_VALUE_FOR_NONE_SUFFIX
-                            : field.value
-                        }
+                        value={field.value ?? SELECT_ITEM_VALUE_FOR_NONE_SUFFIX}
+                        disabled={isEditing && (form.getValues(CHECKBOX_SUFFIX_HL1) || form.getValues(CHECKBOX_SUFFIX_HL2))}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -198,7 +226,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         </FormControl>
                         <SelectContent>
                           <SelectItem value={SELECT_ITEM_VALUE_FOR_NONE_SUFFIX}>{t('modelNumberSuffixNone')}</SelectItem>
-                          {modelNumberSuffixOptions.map(option => (
+                          {SELECT_SUFFIX_OPTIONS.map(option => (
                             <SelectItem key={option} value={option}>
                               {option}
                             </SelectItem>
@@ -210,11 +238,58 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   )}
                 />
               </div>
-               {form.formState.errors.modelNumberPrefix && form.formState.errors.modelNumberPrefix.message?.includes(t("modelNumberRequiredError")) && (
-                <p className="text-sm font-medium text-destructive pt-1">{t("modelNumberRequiredError")}</p>
+              {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
+                <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
               )}
             </div>
-            
+
+            {!isEditing && ( // Only show HL checkboxes when adding new, not when editing
+              <div className="space-y-2">
+                  <FormLabel>{t('hlSuffixesLabel')}</FormLabel>
+                  <FormDescription>{t('hlSuffixesDescription')}</FormDescription>
+                  <div className="flex gap-4 items-center">
+                    <FormField
+                      control={form.control}
+                      name={CHECKBOX_SUFFIX_HL1}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isEditing || (!!form.watch('modelNumberSuffixSelect') && form.watch('modelNumberSuffixSelect') !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX)}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>{CHECKBOX_SUFFIX_HL1}</FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={CHECKBOX_SUFFIX_HL2}
+                      render={({ field }) => (
+                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={isEditing || (!!form.watch('modelNumberSuffixSelect') && form.watch('modelNumberSuffixSelect') !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX)}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>{CHECKBOX_SUFFIX_HL2}</FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                   <FormMessage>{form.formState.errors[CHECKBOX_SUFFIX_HL1]?.message || form.formState.errors[CHECKBOX_SUFFIX_HL2]?.message}</FormMessage>
+              </div>
+            )}
+
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -223,13 +298,13 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   <FormItem>
                     <FormLabel>{t('widthLabel')}</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder={t('widthPlaceholder')} 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder={t('widthPlaceholder')}
+                        {...field}
                         value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
-                        step="any" 
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        step="any"
                       />
                     </FormControl>
                     <FormMessage />
@@ -243,12 +318,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   <FormItem>
                     <FormLabel>{t('heightLabel')}</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
-                        placeholder={t('heightPlaceholder')} 
-                        {...field} 
+                      <Input
+                        type="number"
+                        placeholder={t('heightPlaceholder')}
+                        {...field}
                         value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                         step="any"
                       />
                     </FormControl>
@@ -264,10 +339,10 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 <FormItem>
                   <FormLabel>{t('quantityLabel')}</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      placeholder={t('quantityPlaceholder')} 
-                      {...field} 
+                    <Input
+                      type="number"
+                      placeholder={t('quantityPlaceholder')}
+                      {...field}
                       value={field.value ?? ''}
                       onChange={e => {
                         const val = e.target.value;

@@ -8,7 +8,7 @@ import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Edit3 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCnCardDescription } from '@/components/ui/card'; // Renamed to avoid conflict
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCnCardDescription } from '@/components/ui/card'; 
 import {
   Dialog,
   DialogContent,
@@ -20,12 +20,14 @@ import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { getFirebaseInstances } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
 const TILES_COLLECTION = "globalTilesInventory";
 const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; 
+const CHECKBOX_SUFFIX_HL1 = "HL-1";
+const CHECKBOX_SUFFIX_HL2 = "HL-2";
 
 export default function InventoryPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -41,7 +43,7 @@ export default function InventoryPage() {
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
-        if (!db) { // Check if db is defined after async initialization
+        if (!db) { 
           console.error("Firestore is not initialized.");
           toast({ title: "Error", description: "Failed to connect to database.", variant: "destructive" });
           setIsLoading(false);
@@ -65,7 +67,7 @@ export default function InventoryPage() {
           });
           setTiles(fetchedTiles);
           setIsLoading(false);
-        }, (error: any) => { // Add error handler
+        }, (error: any) => { 
           console.error("Error fetching tiles:", error);
           toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: "destructive" });
           setIsLoading(false);
@@ -94,57 +96,110 @@ export default function InventoryPage() {
 
   const handleSaveTile = useCallback(async (data: TileFormData, id?: string) => {
     const { db } = await getFirebaseInstances();
-    if (!db) { // Check if db is defined after async initialization
+    if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
       return;
     }
     
-    let modelNumber = "";
-    if (data.modelNumberPrefix !== undefined && data.modelNumberPrefix !== null && String(data.modelNumberPrefix).trim() !== "") {
-      modelNumber += String(data.modelNumberPrefix);
-    }
-    if (data.modelNumberSuffix && data.modelNumberSuffix.trim() !== "" && data.modelNumberSuffix !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX) {
-      if (modelNumber.length > 0) {
-        modelNumber += "-";
-      }
-      modelNumber += data.modelNumberSuffix;
-    }
-    
-    if(modelNumber === "") modelNumber = "N/A";
-    const tileDisplayName = modelNumber;
-
-    const tileDataForStorage = {
-      modelNumber,
+    const tileBaseData = {
       width: data.width,
       height: data.height,
       quantity: data.quantity,
     };
 
     try {
-      if (id) {
+      if (id) { // Editing existing tile
+        let modelNumber = "";
+        if (data.modelNumberPrefix !== undefined) {
+          modelNumber += String(data.modelNumberPrefix);
+        }
+        // For editing, we primarily use modelNumberSuffixSelect or reconstruct based on HL flags if they were part of original model
+        // The form logic for populating these fields during edit is key.
+        // Here, we assume the form data reflects the single suffix being edited.
+        if (data[CHECKBOX_SUFFIX_HL1] && data.modelNumberPrefix !== undefined) {
+            modelNumber = (modelNumber.length > 0 ? modelNumber + "-" : "") + CHECKBOX_SUFFIX_HL1;
+        } else if (data[CHECKBOX_SUFFIX_HL2] && data.modelNumberPrefix !== undefined) {
+            modelNumber = (modelNumber.length > 0 ? modelNumber + "-" : "") + CHECKBOX_SUFFIX_HL2;
+        } else if (data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
+          if (modelNumber.length > 0) modelNumber += "-";
+          modelNumber += data.modelNumberSuffixSelect;
+        }
+
+
+        if(modelNumber === "") modelNumber = "N/A";
+        
         const tileDocRef = doc(db, TILES_COLLECTION, id);
-        await updateDoc(tileDocRef, tileDataForStorage);
+        await updateDoc(tileDocRef, { ...tileBaseData, modelNumber });
         toast({
           title: t('toastTileUpdatedTitle'),
-          description: t('toastTileUpdatedDescription', { modelNumber: tileDisplayName }),
+          description: t('toastTileUpdatedDescription', { modelNumber }),
           variant: "default",
         });
-      } else {
-        await addDoc(collection(db, TILES_COLLECTION), {
-          ...tileDataForStorage,
-          createdAt: serverTimestamp(), 
+
+      } else { // Adding new tile(s)
+        const modelsToCreate: string[] = [];
+        let prefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix) : "";
+
+        if (data[CHECKBOX_SUFFIX_HL1] && prefixStr) {
+          modelsToCreate.push(prefixStr + "-" + CHECKBOX_SUFFIX_HL1);
+        }
+        if (data[CHECKBOX_SUFFIX_HL2] && prefixStr) {
+          modelsToCreate.push(prefixStr + "-" + CHECKBOX_SUFFIX_HL2);
+        }
+
+        // If no HL suffixes were checked OR if a prefix wasn't provided for them,
+        // fall back to the select suffix or just prefix.
+        if (modelsToCreate.length === 0) {
+          let singleModel = prefixStr;
+          if (data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
+            if (singleModel.length > 0) singleModel += "-";
+            singleModel += data.modelNumberSuffixSelect;
+          }
+          if (singleModel === "" && prefixStr === "") singleModel = "N/A"; // Handle case where everything is empty
+          else if (singleModel === "") singleModel = prefixStr || "N/A";
+
+
+          if (singleModel !== "N/A" || (singleModel === "N/A" && prefixStr !== "N/A" )) { // ensure we have something to add
+             modelsToCreate.push(singleModel);
+          }
+        }
+        
+        if (modelsToCreate.length === 0 && prefixStr) { // Case: only prefix provided, no specific suffix and no HL
+             modelsToCreate.push(prefixStr);
+        } else if (modelsToCreate.length === 0 && !prefixStr && data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
+            // Case: only select suffix provided (e.g. "L"), no prefix
+             modelsToCreate.push(data.modelNumberSuffixSelect);
+        }
+
+
+        if (modelsToCreate.length === 0 || (modelsToCreate.length === 1 && modelsToCreate[0] === "N/A" && !prefixStr && (!data.modelNumberSuffixSelect || data.modelNumberSuffixSelect === SELECT_ITEM_VALUE_FOR_NONE_SUFFIX))) {
+           toast({ title: "Save Error", description: "No valid model number to save.", variant: "destructive" });
+           return; // Nothing to add based on form input
+        }
+
+
+        const batch = writeBatch(db);
+        modelsToCreate.forEach(modelNum => {
+          const newTileDocRef = doc(collection(db, TILES_COLLECTION));
+          batch.set(newTileDocRef, {
+            ...tileBaseData,
+            modelNumber: modelNum,
+            createdAt: serverTimestamp(),
+          });
         });
+        await batch.commit();
+        
         toast({
           title: t('toastTileAddedTitle'),
-          description: t('toastTileAddedDescription', { modelNumber: tileDisplayName }),
+          description: t('toastTilesAddedDescription', { count: modelsToCreate.length, modelNumbers: modelsToCreate.join(', ') }),
           variant: "default",
         });
       }
       setIsFormOpen(false);
       setEditingTile(null);
     } catch (error) {
-      console.error("Error saving tile:", error);
-      toast({ title: "Save Error", description: "Failed to save tile. Please try again.", variant: "destructive" });
+      console.error("Error saving tile(s):", error);
+      toast({ title: "Save Error", description: "Failed to save tile(s). Please try again.", variant: "destructive" });
     }
   }, [toast, t]);
 
@@ -160,7 +215,7 @@ export default function InventoryPage() {
 
   const handleDeleteTile = useCallback(async (tileId: string) => {
     const { db } = await getFirebaseInstances();
-    if (!db) { // Check if db is defined after async initialization
+    if (!db) { 
       toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
       return;
     }
@@ -188,8 +243,6 @@ export default function InventoryPage() {
     }
   }, [toast, tiles, editingTile, t]);
   
-  // Removed full-page skeleton block from here to allow page structure (header, footer, main shell) to render faster.
-  // The loading state for the tile list itself is handled within the main content area.
 
   const isEditingForm = !!editingTile;
 

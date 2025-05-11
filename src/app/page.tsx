@@ -18,21 +18,21 @@ import {
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase'; // Corrected import path
+import { getFirebaseInstances } from '@/lib/firebase'; 
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader as MUICardHeader } from '@/components/ui/card'; // Renamed CardHeader to avoid conflict with DialogHeader
+import { Card, CardContent, CardHeader as MUICardHeader } from '@/components/ui/card'; 
 
 
 const TILES_COLLECTION = "globalTilesInventory";
 
 const typeConfigPage = [
   { key: "L" as const, name: "type_L" as const, label: "L", quantityName: "quantity_L" as const },
+  { key: "D" as const, name: "type_D" as const, label: "D", quantityName: "quantity_D" as const },
   { key: "HL1" as const, name: "type_HL1" as const, label: "HL-1", quantityName: "quantity_HL1" as const },
   { key: "HL2" as const, name: "type_HL2" as const, label: "HL-2", quantityName: "quantity_HL2" as const },
   { key: "HL4" as const, name: "type_HL4" as const, label: "HL-4", quantityName: "quantity_HL4" as const },
   { key: "HL5" as const, name: "type_HL5" as const, label: "HL-5", quantityName: "quantity_HL5" as const },
-  { key: "D" as const, name: "type_D" as const, label: "D", quantityName: "quantity_D" as const },
   { key: "F" as const, name: "type_F" as const, label: "F", quantityName: "quantity_F" as const },
 ] as const;
 
@@ -48,35 +48,41 @@ export default function InventoryPage() {
 
   const [formMode, setFormMode] = useState<'add' | 'editVariant' | 'editGroup'>('add');
   const [initialDataForForm, setInitialDataForForm] = useState<TileFormData | null>(null);
-  const [editingVariant, setEditingVariant] = useState<Tile | null>(null); // Retained for potential future individual variant edit logic
+  const [editingVariant, setEditingVariant] = useState<Tile | null>(null); 
   const [editingGroup, setEditingGroup] = useState<GroupedDisplayTile | null>(null);
 
 
   const groupTiles = useCallback((firestoreTiles: Tile[]): GroupedDisplayTile[] => {
     const groups = new Map<string, GroupedDisplayTile>();
-    const knownTypesSorted = typeConfigPage.map(tc => tc.label).sort((a, b) => b.length - a.length);
+    const knownTypesSorted = typeConfigPage.map(tc => tc.label); // Use the order from typeConfigPage
 
     firestoreTiles.forEach(tile => {
       let modelNumberPrefix = tile.modelNumber;
       let typeSuffix = "";
 
-      for (const type of knownTypesSorted) {
+      // Iterate through known types to find a match at the end of the modelNumber
+      // Prioritize longer suffixes to avoid partial matches (e.g. "HL-1" before "L")
+      const sortedTypesForMatching = [...typeConfigPage.map(tc => tc.label)].sort((a,b) => b.length - a.length);
+
+      for (const type of sortedTypesForMatching) {
         if (tile.modelNumber.endsWith(`-${type}`)) {
           modelNumberPrefix = tile.modelNumber.substring(0, tile.modelNumber.length - (type.length + 1));
           typeSuffix = type;
           break;
-        } else if (tile.modelNumber === type) {
+        } else if (tile.modelNumber === type) { // Case where model number is just the type (e.g. "L")
           modelNumberPrefix = ""; 
           typeSuffix = type;
           break;
         }
       }
       
+      // Handle cases where no type suffix is found
       if (modelNumberPrefix === tile.modelNumber && tile.modelNumber !== "N/A" && typeSuffix === "") {
-         // typeSuffix remains ""
+         // typeSuffix remains "" (it's a base model with a prefix)
       } else if (modelNumberPrefix === "N/A" && typeSuffix === "") {
-        // modelNumberPrefix is "N/A", typeSuffix is ""
+        // modelNumberPrefix is "N/A", typeSuffix is "" (it's a base model marked as N/A)
       }
+
 
       const groupKey = `${modelNumberPrefix || "N/A"}_${tile.width}x${tile.height}`;
 
@@ -94,21 +100,26 @@ export default function InventoryPage() {
       const group = groups.get(groupKey)!;
       group.variants.push({
         id: tile.id,
-        typeSuffix: typeSuffix || (modelNumberPrefix === tile.modelNumber && modelNumberPrefix !== "N/A" ? t('noTypeSuffix') : "N/A"),
+        // Use t('noTypeSuffix') for display if typeSuffix is empty AND modelNumberPrefix is not empty
+        // Use "N/A" if typeSuffix is empty AND modelNumberPrefix is also "N/A" or empty
+        typeSuffix: typeSuffix || (modelNumberPrefix && modelNumberPrefix !== "N/A" ? t('noTypeSuffix') : "N/A"),
         quantity: tile.quantity,
         createdAt: tile.createdAt,
       });
       
+      // Sort variants based on the order defined in typeConfigPage
       group.variants.sort((a, b) => {
-        const typeOrder = knownTypesSorted.concat(["N/A", t('noTypeSuffix')]);
+        const typeOrder = knownTypesSorted.concat(["N/A", t('noTypeSuffix')]); // Add fallbacks to the end
         return typeOrder.indexOf(a.typeSuffix) - typeOrder.indexOf(b.typeSuffix);
       });
 
+      // Update groupCreatedAt to be the earliest among its variants
       if (tile.createdAt && (!group.groupCreatedAt || tile.createdAt < group.groupCreatedAt)) {
           group.groupCreatedAt = tile.createdAt;
       }
     });
     
+    // Sort groups by their groupCreatedAt timestamp (most recent first)
     return Array.from(groups.values()).sort((a,b) => (b.groupCreatedAt?.getTime() || 0) - (a.groupCreatedAt?.getTime() || 0));
   }, [t]);
 
@@ -178,6 +189,7 @@ export default function InventoryPage() {
     formData.height = group.height;
   
     typeConfigPage.forEach(sf => {
+      // Match variant.typeSuffix with sf.label, OR if sf.label is "L", also match with translated "noTypeSuffix"
       const variant = group.variants.find(v => v.typeSuffix === sf.label || (sf.label === "L" && v.typeSuffix === t('noTypeSuffix')));
       if (variant) {
         formData[sf.name] = true;
@@ -188,10 +200,13 @@ export default function InventoryPage() {
       }
     });
 
+    // Handle base model quantity if no specific types are checked but a prefix exists
+    // This occurs when the group has only one variant which is a "base model" (no specific type suffix)
     const baseVariant = group.variants.find(v => v.typeSuffix === t('noTypeSuffix') || v.typeSuffix === "N/A" || v.typeSuffix === "");
     if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { 
+        // If there's only one variant and it's a base model (no specific type like L, D, HL1, etc.)
         if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
-            formData.quantity = baseVariant.quantity;
+            formData.quantity = baseVariant.quantity; // Populate the global quantity field
         }
     }
     return formData;
@@ -215,7 +230,7 @@ export default function InventoryPage() {
     try {
       if (formMode === 'editGroup' && editingGroup) {
         const batch = writeBatch(db);
-        // Delete old variants
+        // Delete old variants first
         editingGroup.variants.forEach(variant => {
           const oldDocRef = doc(db, TILES_COLLECTION, variant.id);
           batch.delete(oldDocRef);
@@ -226,20 +241,21 @@ export default function InventoryPage() {
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
 
         if (checkedTypes.length > 0) {
+            // Create tiles for each checked type with a quantity
             for (const sf of checkedTypes) {
                 const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
                 const currentQuantity = data[sf.quantityName] ?? 0;
-                if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) {
+                if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) { // Ensure quantity is positive and model not already added
                      modelsToCreateOrUpdateMap.set(model, {
                         ...tileBaseProperties, 
                         modelNumber: model,
                         quantity: currentQuantity,
-                        createdAt: serverTimestamp(),
+                        createdAt: serverTimestamp(), // Use server timestamp for new/updated
                     });
                 }
             }
-        } else if (modelNumberPrefixStr) { 
-            const quantity = data.quantity ?? 0;
+        } else if (modelNumberPrefixStr) { // No types checked, but prefix is present (base model with prefix)
+            const quantity = data.quantity ?? 0; // Use global quantity
              if (quantity > 0 && !modelsToCreateOrUpdateMap.has(modelNumberPrefixStr)){
                 modelsToCreateOrUpdateMap.set(modelNumberPrefixStr, {
                      ...tileBaseProperties,
@@ -248,12 +264,12 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { 
+        } else { // No types checked AND no prefix (e.g. just size, effectively "N/A" model)
              const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateOrUpdateMap.has("N/A")) {
+             if (quantity > 0 && !modelsToCreateOrUpdateMap.has("N/A")) { // Ensure quantity is positive
                  modelsToCreateOrUpdateMap.set("N/A", {
                      ...tileBaseProperties,
-                    modelNumber: "N/A",
+                    modelNumber: "N/A", // Store as "N/A" if no prefix and no type
                     quantity: quantity,
                     createdAt: serverTimestamp(),
                 });
@@ -269,7 +285,7 @@ export default function InventoryPage() {
         }
 
         tileDataObjects.forEach(tileData => {
-          const newTileDocRef = doc(collection(db, TILES_COLLECTION));
+          const newTileDocRef = doc(collection(db, TILES_COLLECTION)); // Create a new doc ref for each
           batch.set(newTileDocRef, tileData);
         });
         await batch.commit();
@@ -283,10 +299,12 @@ export default function InventoryPage() {
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
 
         if (checkedTypes.length > 0) {
+            // Create tiles for each checked type
             for (const sf of checkedTypes) {
                 const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
                 const currentQuantity = data[sf.quantityName] ?? 0;
 
+                // Only add if quantity is positive and model not already processed
                 if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
                      modelsToCreateMap.set(model, {
                         ...tileBaseProperties,
@@ -296,9 +314,9 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (modelNumberPrefixStr) { 
-            const quantity = data.quantity ?? 0; 
-             if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){
+        } else if (modelNumberPrefixStr) { // No types checked, but prefix is present
+            const quantity = data.quantity ?? 0; // Use global quantity
+             if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){ // Ensure quantity is positive
                 modelsToCreateMap.set(modelNumberPrefixStr, {
                      ...tileBaseProperties,
                     modelNumber: modelNumberPrefixStr,
@@ -306,12 +324,12 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { 
+        } else { // No types checked AND no prefix
              const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateMap.has("N/A")) {
+             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { // Ensure quantity is positive
                  modelsToCreateMap.set("N/A", {
                      ...tileBaseProperties,
-                    modelNumber: "N/A",
+                    modelNumber: "N/A", // Store as "N/A" if no prefix and no type
                     quantity: quantity,
                     createdAt: serverTimestamp(),
                 });
@@ -321,7 +339,7 @@ export default function InventoryPage() {
         const modelsToCreate = Array.from(modelsToCreateMap.keys());
         const tileDataObjects = Array.from(modelsToCreateMap.values());
 
-        if (tileDataObjects.length === 0 ) {
+        if (tileDataObjects.length === 0 ) { // No valid tiles to create
            toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
            setIsFormOpen(true); // Keep form open for correction
            return;
@@ -352,10 +370,10 @@ export default function InventoryPage() {
   const handleEditGroup = useCallback((group: GroupedDisplayTile) => {
     setFormMode('editGroup');
     setEditingGroup(group);
-    setEditingVariant(null);
+    setEditingVariant(null); // Clear any single variant editing
     setInitialDataForForm(prepareDataForGroupEdit(group));
     setIsFormOpen(true);
-  }, []); 
+  }, [prepareDataForGroupEdit]); // Added prepareDataForGroupEdit to dependencies
 
   const handleCancelEditOnForm = useCallback(() => {
     setEditingVariant(null);
@@ -383,6 +401,7 @@ export default function InventoryPage() {
       });
       await batch.commit();
 
+      // If the currently edited group is the one being deleted, close the form and clear data
       if (editingGroup && editingGroup.groupKey === group.groupKey) {
         setEditingGroup(null);
         setInitialDataForForm(null);
@@ -391,7 +410,7 @@ export default function InventoryPage() {
       toast({
         title: t('toastGroupDeletedTitle'),
         description: t('toastGroupDeletedDescription', { modelNumberPrefix: group.modelNumberPrefix }),
-        variant: "destructive",
+        variant: "destructive", // Use destructive variant for delete confirmation
       });
     } catch (error) {
       console.error("Error deleting group:", error);
@@ -456,6 +475,7 @@ export default function InventoryPage() {
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
+              // Reset states when dialog is closed, not just on cancel button
               setEditingVariant(null);
               setEditingGroup(null);
               setInitialDataForForm(null);
@@ -478,12 +498,12 @@ export default function InventoryPage() {
                   onSaveTile={handleSaveTile}
                   initialValues={initialDataForForm}
                   onCancelEdit={handleCancelEditOnForm}
-                  isEditMode={formMode === 'editGroup'}
-                  isGroupEdit={formMode === 'editGroup'}
-                  key={formMode === 'add' ? 'add' : (editingGroup?.groupKey)} 
+                  isEditMode={formMode === 'editGroup'} // True if editing a group
+                  isGroupEdit={formMode === 'editGroup'} // Specifically for group edit logic in TileForm
+                  key={formMode === 'add' ? 'add' : (editingGroup?.groupKey)} // Key change to force re-mount on mode/group change
                 />
               )}
-               {formMode === 'add' && !initialDataForForm && ( 
+               {formMode === 'add' && !initialDataForForm && ( // Ensure TileForm is rendered even when initialDataForForm is null for 'add' mode
                  <TileForm
                     onSaveTile={handleSaveTile}
                     initialValues={createInitialDefaultFormValues()}
@@ -534,4 +554,5 @@ export default function InventoryPage() {
     
 
     
+
 

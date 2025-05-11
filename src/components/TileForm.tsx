@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -20,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 
-const modelNumberSuffixOptions = ["hl-1", "hl-2", "d", "f", "Custom"];
-const EMPTY_SUFFIX_VALUE = "__EMPTY_SUFFIX__"; 
+const modelNumberSuffixOptions = ["L", "HL-1", "HL-2", "HL-3", "D", "F"];
+const EMPTY_SUFFIX_VALUE = ""; 
 
 const tileSchema = z.object({
   modelNumberPrefix: z.preprocess(
@@ -52,7 +53,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     resolver: zodResolver(tileSchema),
     defaultValues: {
       modelNumberPrefix: undefined,
-      modelNumberSuffix: "", // "" will map to EMPTY_SUFFIX_VALUE for display
+      modelNumberSuffix: EMPTY_SUFFIX_VALUE, // Default to "" which shows "None"
       width: undefined, 
       height: undefined,
       quantity: undefined,
@@ -67,7 +68,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let foundMatch = false;
-        const sortedSuffixOptions = [...modelNumberSuffixOptions].filter(opt => opt.toLowerCase() !== "custom").sort((a, b) => b.length - a.length);
+        // Sort options by length descending to match longer suffixes first (e.g., "HL-1" before "L")
+        const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
 
         for (const opt of sortedSuffixOptions) {
           if (fullMN.endsWith(`-${opt}`)) {
@@ -80,6 +82,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             foundMatch = true;
             break;
           } else if (fullMN === opt && !sortedSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || sortedSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
+            // Handles cases where the model number is *only* a suffix (e.g., "L", "HL-1")
+            // The additional checks prevent "D" from matching if, for example, "D-FLOOR" was a suffix and "D" was also a suffix.
             parsedSuffix = opt;
             foundMatch = true;
             break;
@@ -87,22 +91,27 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         }
         
         if (!foundMatch && fullMN.length > 0) {
+          // If no suffix matched, try to parse the whole string as a prefix or extract leading number
           const num = parseFloat(fullMN);
           if (!isNaN(num) && String(num) === fullMN) { 
             parsedPrefix = num;
           } else {
+             // Fallback: if it's not purely a number, check if it starts with a number (e.g. "123CUSTOM")
+             // This part might be less relevant now with fixed suffix options
              const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
              if (leadingNumberMatch) {
                 parsedPrefix = parseFloat(leadingNumberMatch[1]);
+                // Potentially, what remains could be a custom suffix not in the list, but we default to no suffix.
              }
+             // If no number found and no suffix matched, parsedPrefix remains undefined, parsedSuffix remains ""
           }
         }
       }
-      // If parsedSuffix is "", it will correctly show "None" in the dropdown.
-      // "Custom" is not parsed from modelNumber string as it implies a blank suffix.
+      // parsedSuffix will be "" if no standard suffix was found or if only a prefix was present.
+      // This correctly sets the dropdown to "None".
       form.reset({
         modelNumberPrefix: parsedPrefix,
-        modelNumberSuffix: parsedSuffix, // This will be "" or one of ["hl-1", "hl-2", "d", "f"]
+        modelNumberSuffix: parsedSuffix, 
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
@@ -110,7 +119,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     } else {
       form.reset({
         modelNumberPrefix: undefined,
-        modelNumberSuffix: "", // Default to "" which shows "None"
+        modelNumberSuffix: EMPTY_SUFFIX_VALUE, // Default to "" which shows "None"
         width: undefined,
         height: undefined,
         quantity: undefined,
@@ -151,7 +160,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                           type="number" 
                           placeholder="e.g., 123" 
                           {...field} 
-                          value={field.value === undefined ? '' : field.value}
+                          value={field.value ?? ''} // Use ?? '' to prevent uncontrolled to controlled warning
                           onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                           step="any"
                         />
@@ -166,14 +175,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   render={({ field }) => (
                     <FormItem className="flex-1">
                       <Select 
-                        onValueChange={(selectedValue) => {
-                          if (selectedValue === EMPTY_SUFFIX_VALUE || selectedValue === "Custom") { // If "None" or "Custom" selected
-                            field.onChange(""); // Store empty string for suffix
-                          } else {
-                            field.onChange(selectedValue); // Store actual value e.g. "hl-1"
-                          }
-                        }} 
-                        value={field.value === undefined || field.value === "" ? EMPTY_SUFFIX_VALUE : field.value}
+                        onValueChange={field.onChange} // Directly use field.onChange, selectedValue will be "" for "None"
+                        value={field.value ?? EMPTY_SUFFIX_VALUE} // Ensure "None" is selected if value is undefined or ""
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -211,7 +214,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         type="number" 
                         placeholder="e.g., 24" 
                         {...field} 
-                        value={field.value === undefined ? '' : field.value}
+                        value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                         step="any" 
                       />
@@ -231,7 +234,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         type="number" 
                         placeholder="e.g., 12" 
                         {...field} 
-                        value={field.value === undefined ? '' : field.value}
+                        value={field.value ?? ''}
                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                         step="any"
                       />
@@ -252,7 +255,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                       type="number" 
                       placeholder="e.g., 100" 
                       {...field} 
-                      value={field.value === undefined ? '' : field.value}
+                      value={field.value ?? ''}
                       onChange={e => {
                         const val = e.target.value;
                         if (val === '') {

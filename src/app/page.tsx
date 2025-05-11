@@ -223,9 +223,6 @@ export default function InventoryPage() {
     if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { // If no specific type was matched
         // This scenario is tricky, if modelNumberPrefix only, it's handled by global quantity logic
         // For group edit, we reflect what's in the variants.
-        // If the group has a variant with no suffix, it should be represented by checking a "Base" type or by the general quantity.
-        // The current TileForm structure is more about creating new types.
-        // For group edit, it's like "Add New", prefilled.
         // If a "Base" variant exists (prefix only, no type suffix), its quantity should be editable
         // via the global quantity field if no types are selected.
         if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
@@ -412,26 +409,13 @@ export default function InventoryPage() {
     }
   }, [toast, t, formMode, editingVariant, editingGroup]);
 
-  const handleEditVariant = useCallback((variantId: string) => {
-    const tileToEdit = rawTiles.find(tile => tile.id === variantId);
-    if (tileToEdit) {
-      setFormMode('editVariant');
-      setEditingVariant(tileToEdit);
-      setEditingGroup(null);
-      setInitialDataForForm(prepareDataForVariantEdit(tileToEdit));
-      setIsFormOpen(true);
-    } else {
-      toast({ title: t("editErrorTitle"), description: t("editErrorNotFound"), variant: "destructive"});
-    }
-  }, [rawTiles, toast, t]);
-
   const handleEditGroup = useCallback((group: GroupedDisplayTile) => {
     setFormMode('editGroup');
     setEditingGroup(group);
     setEditingVariant(null);
     setInitialDataForForm(prepareDataForGroupEdit(group));
     setIsFormOpen(true);
-  }, [toast, t]);
+  }, [toast, t]); // Removed unused handleEditVariant
 
   const handleCancelEditOnForm = useCallback(() => {
     setEditingVariant(null);
@@ -439,39 +423,6 @@ export default function InventoryPage() {
     setInitialDataForForm(null);
     setIsFormOpen(false);
   }, []);
-
-  const handleDeleteVariant = useCallback(async (variantId: string) => {
-    const { db } = await getFirebaseInstances();
-    if (!db) {
-      toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
-      return;
-    }
-
-    const tileToDelete = rawTiles.find(tile => tile.id === variantId);
-    if (!tileToDelete) {
-        toast({ title: t("deleteErrorTitle"), description: t("deleteErrorNotFound"), variant: "destructive"});
-        return;
-    }
-
-    try {
-      const tileDocRef = doc(db, TILES_COLLECTION, variantId);
-      await deleteDoc(tileDocRef);
-
-      if (editingVariant && editingVariant.id === variantId) {
-        setEditingVariant(null);
-        setInitialDataForForm(null);
-        setIsFormOpen(false);
-      }
-      toast({
-        title: t('toastTileDeletedTitle'),
-        description: t('toastTileDeletedDescription', { modelNumber: tileToDelete.modelNumber }),
-        variant: "destructive",
-      });
-    } catch (error) {
-      console.error("Error deleting tile:", error);
-      toast({ title: t("deleteErrorTitle"), description: t("deleteErrorDescription"), variant: "destructive" });
-    }
-  }, [toast, rawTiles, editingVariant, t]);
 
   const handleDeleteGroup = useCallback(async (group: GroupedDisplayTile) => {
     const { db } = await getFirebaseInstances();
@@ -506,7 +457,7 @@ export default function InventoryPage() {
       console.error("Error deleting group:", error);
       toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupDescription"), variant: "destructive" });
     }
-  }, [toast, editingGroup, t]);
+  }, [toast, editingGroup, t]); // Removed unused handleDeleteVariant
 
   const dialogTitle = useMemo(() => {
     if (formMode === 'add') return t('tileFormCardTitleAdd');
@@ -630,8 +581,6 @@ export default function InventoryPage() {
         ) : (
           <TileList
             groupedTiles={groupedTiles}
-            onEditVariant={handleEditVariant}
-            onDeleteVariant={handleDeleteVariant}
             onEditGroup={handleEditGroup}
             onDeleteGroup={handleDeleteGroup}
           />

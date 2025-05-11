@@ -26,18 +26,16 @@ import { Badge } from '@/components/ui/badge';
 
 interface TileListProps {
   groupedTiles: GroupedDisplayTile[];
-  onEditVariant: (variantId: string) => void; // Kept for potential future use or specific variant edits
-  onDeleteVariant: (variantId: string) => void; // Kept for potential future use
   onEditGroup: (group: GroupedDisplayTile) => void;
   onDeleteGroup: (group: GroupedDisplayTile) => void;
 }
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
-const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVariant, onEditGroup, onDeleteGroup }) => {
+const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ type: 'variant', data: TileVariant & { groupModelNumberPrefix: string } } | { type: 'group', data: GroupedDisplayTile } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'group', data: GroupedDisplayTile } | null>(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
@@ -87,23 +85,14 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVari
   }, [searchTerm, itemsPerPage]);
 
 
-  const handleDeleteVariantClick = (variant: TileVariant, groupModelNumberPrefix: string) => {
-    setItemToDelete({ type: 'variant', data: { ...variant, groupModelNumberPrefix } });
-    setShowDeleteDialog(true);
-  };
-
   const handleDeleteGroupClick = (group: GroupedDisplayTile) => {
     setItemToDelete({ type: 'group', data: group });
     setShowDeleteDialog(true);
   };
 
   const confirmDelete = () => {
-    if (itemToDelete) {
-      if (itemToDelete.type === 'variant') {
-        onDeleteVariant(itemToDelete.data.id);
-      } else if (itemToDelete.type === 'group') {
-        onDeleteGroup(itemToDelete.data);
-      }
+    if (itemToDelete && itemToDelete.type === 'group') {
+      onDeleteGroup(itemToDelete.data);
     }
     setShowDeleteDialog(false);
     setItemToDelete(null);
@@ -263,10 +252,10 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVari
                       <Ruler size={14} /> {t('tileCardDimensionsLabel', { width: group.width.toString(), height: group.height.toString() })}
                     </p>
                   </CardHeader>
-                  <CardContent className="flex-grow pt-0 pb-3 px-4 space-y-3">
+                  <CardContent className="flex-grow pt-0 pb-3 px-4 space-y-2"> {/* Reduced space-y */}
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm">
-                        <div className="flex justify-between items-center mb-1">
+                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm"> {/* Reduced p-3 to p-2 */}
+                        <div className="flex justify-between items-center"> {/* Removed mb-1 */}
                            <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
                            </Badge>
@@ -274,15 +263,6 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVari
                              {t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
                            </span>
                         </div>
-                        {/* Individual variant edit/delete can be re-added here if needed by uncommenting and passing onEditVariant/onDeleteVariant */}
-                        {/* <div className="flex justify-end space-x-2 mt-2">
-                          <Button variant="outline" size="sm" onClick={() => onEditVariant(variant.id)}>
-                            <Edit3 className="mr-1 h-3 w-3" /> {t('editButton')}
-                          </Button>
-                          <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteVariantClick(variant, group.modelNumberPrefix)}>
-                            <Trash2 className="mr-1 h-3 w-3" /> {t('deleteButton')}
-                          </Button>
-                        </div> */}
                       </div>
                     ))}
                   </CardContent>
@@ -350,10 +330,6 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVari
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteDialogTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {itemToDelete?.type === 'variant' && t('deleteDialogDescriptionVariant', { 
-                type: itemToDelete.data.typeSuffix === "N/A" || itemToDelete.data.typeSuffix === t('noTypeSuffix') ? t('baseModel') : itemToDelete.data.typeSuffix, 
-                modelNumber: itemToDelete.data.groupModelNumberPrefix 
-              })}
               {itemToDelete?.type === 'group' && t('deleteDialogDescriptionGroup', { 
                 modelNumberPrefix: itemToDelete.data.modelNumberPrefix 
               })}
@@ -372,5 +348,3 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVari
 };
 
 export default TileList;
-
-    

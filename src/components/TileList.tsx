@@ -211,10 +211,10 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
             </div>
             <div className="flex gap-2 mt-2 sm:mt-0">
               <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto">
-                <FileDown className="mr-1 h-4 w-4" /> {t('exportPDF')}
+                <FileDown className="mr-1 h-4 w-4" /> {t('downloadPDF')}
               </Button>
               <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto">
-                <FileSpreadsheet className="mr-1 h-4 w-4" /> {t('exportExcel')}
+                <FileSpreadsheet className="mr-1 h-4 w-4" /> {t('downloadExcel')}
               </Button>
             </div>
           </div>
@@ -339,4 +339,5 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+
 

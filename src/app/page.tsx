@@ -26,24 +26,24 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const TILES_COLLECTION = "globalTilesInventory";
 
-// Suffix constants
-const SUFFIX_L = "L";
-const SUFFIX_HL1 = "HL-1";
-const SUFFIX_HL2 = "HL-2";
-const SUFFIX_D = "D";
-const SUFFIX_F = "F";
-const SUFFIX_HL4 = "HL-4";
-const SUFFIX_HL5 = "HL-5";
+// Type constants
+const TYPE_L = "L";
+const TYPE_HL1 = "HL-1";
+const TYPE_HL2 = "HL-2";
+const TYPE_D = "D";
+const TYPE_F = "F";
+const TYPE_HL4 = "HL-4";
+const TYPE_HL5 = "HL-5";
 
-// This config is used by InventoryPage for saving logic, ensure labels match TileForm's suffixConfig
-const suffixConfigPage = [
-  { key: "L" as const, name: "suffix_L" as const, label: SUFFIX_L, quantityName: "quantity_L" as const },
-  { key: "HL1" as const, name: "suffix_HL1" as const, label: SUFFIX_HL1, quantityName: "quantity_HL1" as const },
-  { key: "HL2" as const, name: "suffix_HL2" as const, label: SUFFIX_HL2, quantityName: "quantity_HL2" as const },
-  { key: "HL4" as const, name: "suffix_HL4" as const, label: SUFFIX_HL4, quantityName: "quantity_HL4" as const },
-  { key: "HL5" as const, name: "suffix_HL5" as const, label: SUFFIX_HL5, quantityName: "quantity_HL5" as const },
-  { key: "D" as const, name: "suffix_D" as const, label: SUFFIX_D, quantityName: "quantity_D" as const },
-  { key: "F" as const, name: "suffix_F" as const, label: SUFFIX_F, quantityName: "quantity_F" as const },
+// This config is used by InventoryPage for saving logic, ensure labels match TileForm's typeConfig
+const typeConfigPage = [
+  { key: "L" as const, name: "type_L" as const, label: TYPE_L, quantityName: "quantity_L" as const },
+  { key: "HL1" as const, name: "type_HL1" as const, label: TYPE_HL1, quantityName: "quantity_HL1" as const },
+  { key: "HL2" as const, name: "type_HL2" as const, label: TYPE_HL2, quantityName: "quantity_HL2" as const },
+  { key: "HL4" as const, name: "type_HL4" as const, label: TYPE_HL4, quantityName: "quantity_HL4" as const },
+  { key: "HL5" as const, name: "type_HL5" as const, label: TYPE_HL5, quantityName: "quantity_HL5" as const },
+  { key: "D" as const, name: "type_D" as const, label: TYPE_D, quantityName: "quantity_D" as const },
+  { key: "F" as const, name: "type_F" as const, label: TYPE_F, quantityName: "quantity_F" as const },
 ] as const;
 
 
@@ -128,10 +128,10 @@ export default function InventoryPage() {
 
     try {
       if (id) { // Editing existing tile
-        const activeSuffixConfig = suffixConfigPage.find(sf => data[sf.name]);
+        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]);
         let modelNumber = prefixStr;
-        if (activeSuffixConfig) {
-            modelNumber = prefixStr ? `${prefixStr}-${activeSuffixConfig.label}` : activeSuffixConfig.label;
+        if (activeTypeConfig) {
+            modelNumber = prefixStr ? `${prefixStr}-${activeTypeConfig.label}` : activeTypeConfig.label;
         } else if (!prefixStr) { 
             modelNumber = "N/A";
         } 
@@ -152,13 +152,13 @@ export default function InventoryPage() {
 
       } else { // Adding new tile(s)
         const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>(); 
-        const checkedSuffixes = suffixConfigPage.filter(sf => data[sf.name]);
+        const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
         
-        if (checkedSuffixes.length > 0) {
-            // One or more suffixes are checked. Use their individual quantities.
-            for (const sf of checkedSuffixes) {
+        if (checkedTypes.length > 0) {
+            // One or more types are checked. Use their individual quantities.
+            for (const sf of checkedTypes) {
                 const model = prefixStr ? `${prefixStr}-${sf.label}` : sf.label;
-                // ALWAYS use per-suffix quantity from data[sf.quantityName] when a suffix is checked
+                // ALWAYS use per-type quantity from data[sf.quantityName] when a type is checked
                 const currentQuantity = data[sf.quantityName] ?? 0;
 
                 if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
@@ -170,7 +170,7 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (prefixStr) { // No suffixes checked, but prefix is provided. Use global quantity.
+        } else if (prefixStr) { // No types checked, but prefix is provided. Use global quantity.
             const quantity = data.quantity ?? 0; // Use global quantity from form
              if (quantity > 0 && !modelsToCreateMap.has(prefixStr)){
                 modelsToCreateMap.set(prefixStr, {
@@ -180,7 +180,7 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { // Neither prefix nor any suffix provided (schema should prevent this if form is empty)
+        } else { // Neither prefix nor any type provided (schema should prevent this if form is empty)
              const quantity = data.quantity ?? 0; // Fallback, though schema should require some model part
              if (quantity > 0 && !modelsToCreateMap.has("N/A")) { 
                  modelsToCreateMap.set("N/A", {
@@ -313,7 +313,7 @@ export default function InventoryPage() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col"> {/* Added flex flex-col */}
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
@@ -323,6 +323,7 @@ export default function InventoryPage() {
                 {isEditingForm ? t('tileFormCardDescriptionEdit') : t('tileFormCardDescriptionAdd')}
               </DialogDescription>
             </DialogHeader>
+            {/* The TileForm itself will be scrollable via its internal ScrollArea */}
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
@@ -367,3 +368,4 @@ export default function InventoryPage() {
 }
 
     
+

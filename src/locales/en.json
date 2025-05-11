@@ -23,12 +23,12 @@
   "modelNumberLabel": "Model Number",
   "modelNumberPrefixLabel": "Model Number Prefix",
   "modelNumberPrefixPlaceholder": "e.g., 123",
-  "modelNumberRequiredError": "A model number part (Prefix or a Suffix checkbox) is required.",
+  "modelNumberRequiredError": "A model number part (Prefix or a Type checkbox) is required.",
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number.",
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
   "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-4 or HL-5 is selected.",
-  "suffixCheckboxesLabel": "Suffixes",
-  "selectAllSuffixes": "Select All Suffixes",
+  "suffixCheckboxesLabel": "Type",
+  "selectAllSuffixes": "Select All Types",
   "widthLabel": "Width (in)",
   "widthPlaceholder": "e.g., 24",
   "widthPositiveError": "Width must be a positive number.",
@@ -42,8 +42,8 @@
   "quantityMinError": "Quantity must be at least 1.",
   "quantityRequiredError": "Quantity is required and must be a positive number.",
   "quantityForSuffixLabel": "Qty for {{suffix}}",
-  "quantityRequiredForSuffixError": "Quantity is required for suffix {{suffix}}.",
-  "editModeSingleSuffixError": "Only one suffix can be selected in edit mode.",
+  "quantityRequiredForSuffixError": "Quantity is required for type {{suffix}}.",
+  "editModeSingleSuffixError": "Only one type can be selected in edit mode.",
   "addTileButton": "Add Tile(s)",
   "updateTileButton": "Update Tile",
   "cancelButton": "Cancel",
@@ -81,3 +81,4 @@
   "toastTileDeletedTitle": "Tile Deleted",
   "toastTileDeletedDescription": "The tile \"{{modelNumber}}\" has been deleted."
 }
+

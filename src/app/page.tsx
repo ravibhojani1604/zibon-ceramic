@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import TileForm, { type TileFormData } from "@/components/TileForm";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import TileForm, { type TileFormData, createInitialDefaultFormValues } from "@/components/TileForm";
 import TileList from "@/components/TileList";
 import type { Tile, GroupedDisplayTile, TileVariant } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Edit3 } from "lucide-react";
+import { PlusCircle, Edit3, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,13 +38,19 @@ const typeConfigPage = [
 
 
 export default function InventoryPage() {
-  const [rawTiles, setRawTiles] = useState<Tile[]>([]); // Stores the flat list from Firestore
+  const [rawTiles, setRawTiles] = useState<Tile[]>([]);
   const [groupedTiles, setGroupedTiles] = useState<GroupedDisplayTile[]>([]);
-  const [editingTile, setEditingTile] = useState<Tile | null>(null); // This will be an individual Tile object
+  
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { t, locale } = useTranslation();
+
+  const [formMode, setFormMode] = useState<'add' | 'editVariant' | 'editGroup'>('add');
+  const [initialDataForForm, setInitialDataForForm] = useState<TileFormData | null>(null);
+  const [editingVariant, setEditingVariant] = useState<Tile | null>(null);
+  const [editingGroup, setEditingGroup] = useState<GroupedDisplayTile | null>(null);
+
 
   const groupTiles = useCallback((firestoreTiles: Tile[]): GroupedDisplayTile[] => {
     const groups = new Map<string, GroupedDisplayTile>();
@@ -66,14 +72,11 @@ export default function InventoryPage() {
         }
       }
       
-      // If after attempting to parse, modelNumberPrefix is still the full modelNumber,
-      // and it's not "N/A", and no typeSuffix was found, it means it's a base model without a type suffix.
       if (modelNumberPrefix === tile.modelNumber && tile.modelNumber !== "N/A" && typeSuffix === "") {
          // typeSuffix remains ""
       } else if (modelNumberPrefix === "N/A" && typeSuffix === "") {
         // modelNumberPrefix is "N/A", typeSuffix is ""
       }
-
 
       const groupKey = `${modelNumberPrefix || "N/A"}_${tile.width}x${tile.height}`;
 
@@ -160,11 +163,80 @@ export default function InventoryPage() {
   }, [t, locale]);
 
   const handleAddNewTileClick = () => {
-    setEditingTile(null);
+    setFormMode('add');
+    setInitialDataForForm(createInitialDefaultFormValues());
+    setEditingVariant(null);
+    setEditingGroup(null);
     setIsFormOpen(true);
   };
 
-  const handleSaveTile = useCallback(async (data: TileFormData, tileIdToEdit?: string) => {
+  const prepareDataForVariantEdit = (tile: Tile): TileFormData => {
+    const formData: TileFormData = createInitialDefaultFormValues();
+    formData.width = tile.width;
+    formData.height = tile.height;
+    formData.quantity = tile.quantity;
+
+    if (tile.modelNumber && tile.modelNumber !== "N/A") {
+      const fullMN = tile.modelNumber;
+      let mnPrefix = fullMN;
+      const knownTypesSorted = typeConfigPage.slice().sort((a,b) => b.label.length - a.label.length);
+
+      for (const sf of knownTypesSorted) {
+        if (fullMN.endsWith(`-${sf.label}`)) {
+          mnPrefix = fullMN.substring(0, fullMN.length - (sf.label.length + 1));
+          formData[sf.name] = true; // This makes it behave like a single-type edit
+          break;
+        } else if (fullMN === sf.label) {
+          mnPrefix = "";
+          formData[sf.name] = true;
+          break;
+        }
+      }
+      const num = parseFloat(mnPrefix);
+      formData.modelNumberPrefix = isNaN(num) || mnPrefix === "" ? (mnPrefix === "N/A" ? undefined : mnPrefix) : num;
+    } else if (tile.modelNumber === "N/A") {
+      formData.modelNumberPrefix = undefined;
+    }
+    return formData;
+  };
+  
+  const prepareDataForGroupEdit = (group: GroupedDisplayTile): TileFormData => {
+    const formData: TileFormData = createInitialDefaultFormValues();
+    const numPrefix = parseFloat(group.modelNumberPrefix);
+    formData.modelNumberPrefix = isNaN(numPrefix) || group.modelNumberPrefix === "" ? (group.modelNumberPrefix === "N/A" ? undefined : group.modelNumberPrefix) : numPrefix;
+    formData.width = group.width;
+    formData.height = group.height;
+  
+    typeConfigPage.forEach(sf => {
+      const variant = group.variants.find(v => v.typeSuffix === sf.label || (sf.label === "L" && v.typeSuffix === t('noTypeSuffix'))); // Adjust if needed
+      if (variant) {
+        formData[sf.name] = true;
+        formData[sf.quantityName] = variant.quantity;
+      } else {
+        formData[sf.name] = false;
+        formData[sf.quantityName] = undefined;
+      }
+    });
+
+    // Handle base model case (no type suffix) if it's stored as a variant with empty/special typeSuffix
+    const baseVariant = group.variants.find(v => v.typeSuffix === t('noTypeSuffix') || v.typeSuffix === "N/A" || v.typeSuffix === "");
+    if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { // If no specific type was matched
+        // This scenario is tricky, if modelNumberPrefix only, it's handled by global quantity logic
+        // For group edit, we reflect what's in the variants.
+        // If the group has a variant with no suffix, it should be represented by checking a "Base" type or by the general quantity.
+        // The current TileForm structure is more about creating new types.
+        // For group edit, it's like "Add New", prefilled.
+        // If a "Base" variant exists (prefix only, no type suffix), its quantity should be editable
+        // via the global quantity field if no types are selected.
+        if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
+            formData.quantity = baseVariant.quantity;
+        }
+    }
+    return formData;
+  };
+
+
+  const handleSaveTile = useCallback(async (data: TileFormData) => {
     const { db } = await getFirebaseInstances();
     if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
@@ -179,33 +251,97 @@ export default function InventoryPage() {
     const modelNumberPrefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix).trim() : "";
 
     try {
-      if (tileIdToEdit) { // Editing existing tile (variant)
-        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]); // In edit, only one should be true
+      if (formMode === 'editVariant' && editingVariant) {
+        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]); 
         let finalModelNumber = modelNumberPrefixStr;
 
         if (activeTypeConfig && modelNumberPrefixStr) {
           finalModelNumber = `${modelNumberPrefixStr}-${activeTypeConfig.label}`;
-        } else if (activeTypeConfig) { // Only type, no prefix
+        } else if (activeTypeConfig) { 
           finalModelNumber = activeTypeConfig.label;
-        } else if (!modelNumberPrefixStr) { // No prefix and no type (should be caught by validation)
+        } else if (!modelNumberPrefixStr) { 
           finalModelNumber = "N/A";
         }
-        // If finalModelNumber is still empty, it means prefix was empty and no type was selected
         if (finalModelNumber === "") finalModelNumber = "N/A";
 
-
-        const tileDocRef = doc(db, TILES_COLLECTION, tileIdToEdit);
+        const tileDocRef = doc(db, TILES_COLLECTION, editingVariant.id);
         await updateDoc(tileDocRef, {
           ...tileBaseProperties,
           modelNumber: finalModelNumber,
-          quantity: data.quantity // Global quantity is used for the specific variant being edited
+          quantity: data.quantity 
         });
         toast({
           title: t('toastTileUpdatedTitle'),
           description: t('toastTileUpdatedDescription', { modelNumber: finalModelNumber }),
         });
 
-      } else { // Adding new tile(s)
+      } else if (formMode === 'editGroup' && editingGroup) {
+        const batch = writeBatch(db);
+        // Delete old variants
+        editingGroup.variants.forEach(variant => {
+          const oldDocRef = doc(db, TILES_COLLECTION, variant.id);
+          batch.delete(oldDocRef);
+        });
+
+        // Add new/updated variants from form data
+        const modelsToCreateOrUpdateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>();
+        const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
+
+        if (checkedTypes.length > 0) {
+            for (const sf of checkedTypes) {
+                const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
+                const currentQuantity = data[sf.quantityName] ?? 0;
+                if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) {
+                     modelsToCreateOrUpdateMap.set(model, {
+                        ...tileBaseProperties, // Use width/height from form
+                        modelNumber: model,
+                        quantity: currentQuantity,
+                        createdAt: serverTimestamp(),
+                    });
+                }
+            }
+        } else if (modelNumberPrefixStr) { 
+            const quantity = data.quantity ?? 0;
+             if (quantity > 0 && !modelsToCreateOrUpdateMap.has(modelNumberPrefixStr)){
+                modelsToCreateOrUpdateMap.set(modelNumberPrefixStr, {
+                     ...tileBaseProperties,
+                    modelNumber: modelNumberPrefixStr,
+                    quantity: quantity,
+                    createdAt: serverTimestamp(),
+                });
+            }
+        } else { 
+             const quantity = data.quantity ?? 0;
+             if (quantity > 0 && !modelsToCreateOrUpdateMap.has("N/A")) {
+                 modelsToCreateOrUpdateMap.set("N/A", {
+                     ...tileBaseProperties,
+                    modelNumber: "N/A",
+                    quantity: quantity,
+                    createdAt: serverTimestamp(),
+                });
+            }
+        }
+        
+        const modelsToCreate = Array.from(modelsToCreateOrUpdateMap.keys());
+        const tileDataObjects = Array.from(modelsToCreateOrUpdateMap.values());
+
+        if (tileDataObjects.length === 0 && modelsToCreate.length === 0) {
+           toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
+           // setIsFormOpen(false); // Keep form open for correction
+           return;
+        }
+
+        tileDataObjects.forEach(tileData => {
+          const newTileDocRef = doc(collection(db, TILES_COLLECTION));
+          batch.set(newTileDocRef, tileData);
+        });
+        await batch.commit();
+        toast({
+          title: t('toastGroupUpdatedTitle'),
+          description: t('toastGroupUpdatedDescription', { modelNumberPrefix: modelNumberPrefixStr || "N/A" }),
+        });
+
+      } else { // Adding new tile(s) - formMode === 'add'
         const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>();
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
 
@@ -223,8 +359,8 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (modelNumberPrefixStr) { // Only prefix is provided, no types selected
-            const quantity = data.quantity ?? 0; // Use global quantity
+        } else if (modelNumberPrefixStr) { 
+            const quantity = data.quantity ?? 0; 
              if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){
                 modelsToCreateMap.set(modelNumberPrefixStr, {
                      ...tileBaseProperties,
@@ -233,7 +369,7 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { // Neither prefix nor type selected, use global quantity for "N/A" model
+        } else { 
              const quantity = data.quantity ?? 0;
              if (quantity > 0 && !modelsToCreateMap.has("N/A")) {
                  modelsToCreateMap.set("N/A", {
@@ -267,29 +403,44 @@ export default function InventoryPage() {
         });
       }
       setIsFormOpen(false);
-      setEditingTile(null);
+      setEditingVariant(null);
+      setEditingGroup(null);
+      setInitialDataForForm(null);
     } catch (error) {
       console.error("Error saving tile(s):", error);
       toast({ title: t("saveErrorTitle"), description: t("saveErrorDescription"), variant: "destructive" });
     }
-  }, [toast, t]);
+  }, [toast, t, formMode, editingVariant, editingGroup]);
 
-  const handleEditTile = useCallback((variantId: string) => {
+  const handleEditVariant = useCallback((variantId: string) => {
     const tileToEdit = rawTiles.find(tile => tile.id === variantId);
     if (tileToEdit) {
-      setEditingTile(tileToEdit);
+      setFormMode('editVariant');
+      setEditingVariant(tileToEdit);
+      setEditingGroup(null);
+      setInitialDataForForm(prepareDataForVariantEdit(tileToEdit));
       setIsFormOpen(true);
     } else {
       toast({ title: t("editErrorTitle"), description: t("editErrorNotFound"), variant: "destructive"});
     }
   }, [rawTiles, toast, t]);
 
+  const handleEditGroup = useCallback((group: GroupedDisplayTile) => {
+    setFormMode('editGroup');
+    setEditingGroup(group);
+    setEditingVariant(null);
+    setInitialDataForForm(prepareDataForGroupEdit(group));
+    setIsFormOpen(true);
+  }, [toast, t]);
+
   const handleCancelEditOnForm = useCallback(() => {
-    setEditingTile(null);
+    setEditingVariant(null);
+    setEditingGroup(null);
+    setInitialDataForForm(null);
     setIsFormOpen(false);
   }, []);
 
-  const handleDeleteTile = useCallback(async (variantId: string) => {
+  const handleDeleteVariant = useCallback(async (variantId: string) => {
     const { db } = await getFirebaseInstances();
     if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
@@ -306,23 +457,71 @@ export default function InventoryPage() {
       const tileDocRef = doc(db, TILES_COLLECTION, variantId);
       await deleteDoc(tileDocRef);
 
-      if (editingTile && editingTile.id === variantId) {
-        setEditingTile(null);
+      if (editingVariant && editingVariant.id === variantId) {
+        setEditingVariant(null);
+        setInitialDataForForm(null);
         setIsFormOpen(false);
       }
       toast({
         title: t('toastTileDeletedTitle'),
         description: t('toastTileDeletedDescription', { modelNumber: tileToDelete.modelNumber }),
-        variant: "destructive", // Or default
+        variant: "destructive",
       });
     } catch (error) {
       console.error("Error deleting tile:", error);
       toast({ title: t("deleteErrorTitle"), description: t("deleteErrorDescription"), variant: "destructive" });
     }
-  }, [toast, rawTiles, editingTile, t]);
+  }, [toast, rawTiles, editingVariant, t]);
 
+  const handleDeleteGroup = useCallback(async (group: GroupedDisplayTile) => {
+    const { db } = await getFirebaseInstances();
+    if (!db) {
+      toast({ title: "Database Error", description: "Database not connected. Cannot delete group.", variant: "destructive"});
+      return;
+    }
+    if (!group || group.variants.length === 0) {
+        toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupNotFound"), variant: "destructive"});
+        return;
+    }
 
-  const isEditingForm = !!editingTile;
+    try {
+      const batch = writeBatch(db);
+      group.variants.forEach(variant => {
+        const docRef = doc(db, TILES_COLLECTION, variant.id);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+
+      if (editingGroup && editingGroup.groupKey === group.groupKey) {
+        setEditingGroup(null);
+        setInitialDataForForm(null);
+        setIsFormOpen(false);
+      }
+      toast({
+        title: t('toastGroupDeletedTitle'),
+        description: t('toastGroupDeletedDescription', { modelNumberPrefix: group.modelNumberPrefix }),
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error("Error deleting group:", error);
+      toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupDescription"), variant: "destructive" });
+    }
+  }, [toast, editingGroup, t]);
+
+  const dialogTitle = useMemo(() => {
+    if (formMode === 'add') return t('tileFormCardTitleAdd');
+    if (formMode === 'editVariant') return t('tileFormCardTitleEdit');
+    if (formMode === 'editGroup') return t('tileFormCardTitleEditGroup');
+    return "";
+  }, [formMode, t]);
+
+  const dialogDescription = useMemo(() => {
+    if (formMode === 'add') return t('tileFormCardDescriptionAdd');
+    if (formMode === 'editVariant') return t('tileFormCardDescriptionEdit');
+    if (formMode === 'editGroup') return t('tileFormCardDescriptionEditGroup');
+    return "";
+  }, [formMode, t]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -368,26 +567,43 @@ export default function InventoryPage() {
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
-              setEditingTile(null);
+              setEditingVariant(null);
+              setEditingGroup(null);
+              setInitialDataForForm(null);
             }
           }}
         >
           <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col">
             <DialogHeader className="px-0 pt-0 pb-4 sticky top-0 bg-card z-10 border-b">
               <DialogTitle className="text-xl flex items-center gap-2">
-                {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
-                {isEditingForm ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
+                {formMode === 'add' ? <PlusCircle className="text-primary" /> : <Edit className="text-primary" />}
+                {dialogTitle}
               </DialogTitle>
               <DialogDescription>
-                {isEditingForm ? t('tileFormCardDescriptionEdit') : t('tileFormCardDescriptionAdd')}
+                {dialogDescription}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-2"> {/* Added pr-2 for scrollbar spacing */}
-              <TileForm
-                onSaveTile={handleSaveTile}
-                editingTile={editingTile}
-                onCancelEdit={handleCancelEditOnForm}
-              />
+            <div className="flex-grow overflow-y-auto pr-2">
+              {initialDataForForm && (
+                <TileForm
+                  onSaveTile={handleSaveTile}
+                  initialValues={initialDataForForm}
+                  onCancelEdit={handleCancelEditOnForm}
+                  isEditMode={formMode === 'editVariant' || formMode === 'editGroup'}
+                  isGroupEdit={formMode === 'editGroup'}
+                  key={formMode === 'add' ? 'add' : (editingVariant?.id || editingGroup?.groupKey)} // Force re-render with new initialValues
+                />
+              )}
+               {formMode === 'add' && !initialDataForForm && ( // Ensure form renders for add mode even if initialDataForForm is momentarily null
+                 <TileForm
+                    onSaveTile={handleSaveTile}
+                    initialValues={createInitialDefaultFormValues()}
+                    onCancelEdit={handleCancelEditOnForm}
+                    isEditMode={false}
+                    isGroupEdit={false}
+                    key="add-empty"
+                 />
+               )}
             </div>
           </DialogContent>
         </Dialog>
@@ -414,8 +630,10 @@ export default function InventoryPage() {
         ) : (
           <TileList
             groupedTiles={groupedTiles}
-            onEditTile={handleEditTile}
-            onDeleteTile={handleDeleteTile}
+            onEditVariant={handleEditVariant}
+            onDeleteVariant={handleDeleteVariant}
+            onEditGroup={handleEditGroup}
+            onDeleteGroup={handleDeleteGroup}
           />
         )}
       </main>
@@ -426,5 +644,6 @@ export default function InventoryPage() {
     </div>
   );
 }
+    
 
     

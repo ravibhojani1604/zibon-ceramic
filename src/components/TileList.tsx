@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Archive, Layers, Square, Ruler, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box, Edit, Trash } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/context/i18n';
 import { Badge } from '@/components/ui/badge';
@@ -26,16 +26,18 @@ import { Badge } from '@/components/ui/badge';
 
 interface TileListProps {
   groupedTiles: GroupedDisplayTile[];
-  onEditTile: (variantId: string) => void;
-  onDeleteTile: (variantId: string) => void;
+  onEditVariant: (variantId: string) => void; // Kept for potential future use or specific variant edits
+  onDeleteVariant: (variantId: string) => void; // Kept for potential future use
+  onEditGroup: (group: GroupedDisplayTile) => void;
+  onDeleteGroup: (group: GroupedDisplayTile) => void;
 }
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
-const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile }) => {
+const TileList: FC<TileListProps> = ({ groupedTiles, onEditVariant, onDeleteVariant, onEditGroup, onDeleteGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [variantToDelete, setVariantToDelete] = useState<TileVariant & { groupModelNumberPrefix: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'variant', data: TileVariant & { groupModelNumberPrefix: string } } | { type: 'group', data: GroupedDisplayTile } | null>(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
@@ -58,7 +60,6 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
                              `${group.width} x ${group.height}`.includes(searchLower);
       const typeMatch = group.variants.some(variant => variant.typeSuffix.toLowerCase().includes(searchLower));
       
-      // Advanced search for "model-type" or "model type"
       const parts = searchLower.split(/[\s-]+/).filter(p => p);
       let advancedMatch = false;
       if (parts.length > 1) {
@@ -68,8 +69,6 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
             advancedMatch = group.variants.some(v => v.typeSuffix.toLowerCase().includes(potentialTypeSuffix));
         }
       }
-
-
       return modelMatch || dimensionMatch || typeMatch || advancedMatch;
     });
   }, [groupedTiles, searchTerm]);
@@ -88,17 +87,26 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
   }, [searchTerm, itemsPerPage]);
 
 
-  const handleDeleteClick = (variant: TileVariant, groupModelNumberPrefix: string) => {
-    setVariantToDelete({ ...variant, groupModelNumberPrefix });
+  const handleDeleteVariantClick = (variant: TileVariant, groupModelNumberPrefix: string) => {
+    setItemToDelete({ type: 'variant', data: { ...variant, groupModelNumberPrefix } });
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteGroupClick = (group: GroupedDisplayTile) => {
+    setItemToDelete({ type: 'group', data: group });
     setShowDeleteDialog(true);
   };
 
   const confirmDelete = () => {
-    if (variantToDelete) {
-      onDeleteTile(variantToDelete.id);
+    if (itemToDelete) {
+      if (itemToDelete.type === 'variant') {
+        onDeleteVariant(itemToDelete.data.id);
+      } else if (itemToDelete.type === 'group') {
+        onDeleteGroup(itemToDelete.data);
+      }
     }
     setShowDeleteDialog(false);
-    setVariantToDelete(null);
+    setItemToDelete(null);
   };
   
   const getExportableData = () => {
@@ -106,14 +114,14 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
     filteredGroupedTiles.forEach(group => {
       group.variants.forEach(variant => {
         dataToExport.push({
-          'Model Number Prefix': group.modelNumberPrefix === "N/A" ? '-' : group.modelNumberPrefix,
-          'Type': variant.typeSuffix === t('noTypeSuffix') || variant.typeSuffix === "N/A" ? '-' : variant.typeSuffix,
-          'Full Model Number': variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
+          [t('exportHeaderModelPrefix')]: group.modelNumberPrefix === "N/A" ? '-' : group.modelNumberPrefix,
+          [t('exportHeaderType')]: variant.typeSuffix === t('noTypeSuffix') || variant.typeSuffix === "N/A" ? '-' : variant.typeSuffix,
+          [t('exportHeaderFullModel')]: variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
                                 ? `${group.modelNumberPrefix}-${variant.typeSuffix}` 
                                 : (group.modelNumberPrefix === "N/A" && variant.typeSuffix && variant.typeSuffix !== "N/A" && variant.typeSuffix !== t('noTypeSuffix') ? variant.typeSuffix : group.modelNumberPrefix),
-          'Width (in)': group.width,
-          'Height (in)': group.height,
-          'Quantity': variant.quantity,
+          [t('exportHeaderWidth')]: group.width,
+          [t('exportHeaderHeight')]: group.height,
+          [t('exportHeaderQuantity')]: variant.quantity,
         });
       });
     });
@@ -133,9 +141,21 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
       
       const doc = new jsPDF();
       autoTable(doc, {
-        head: [['Model Prefix', 'Type', 'Full Model', 'Width (in)', 'Height (in)', 'Quantity']], 
+        head: [[
+            t('exportHeaderModelPrefix'), 
+            t('exportHeaderType'), 
+            t('exportHeaderFullModel'), 
+            t('exportHeaderWidth'), 
+            t('exportHeaderHeight'), 
+            t('exportHeaderQuantity')
+        ]], 
         body: exportData.map(item => [ 
-          item['Model Number Prefix'], item['Type'], item['Full Model Number'], item['Width (in)'], item['Height (in)'], item['Quantity']
+          item[t('exportHeaderModelPrefix')], 
+          item[t('exportHeaderType')], 
+          item[t('exportHeaderFullModel')], 
+          item[t('exportHeaderWidth')], 
+          item[t('exportHeaderHeight')], 
+          item[t('exportHeaderQuantity')]
         ]),
         startY: 20,
         didDrawPage: (data: any) => {
@@ -161,7 +181,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
       const XLSX = await import('xlsx');
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Tiles');
+      XLSX.utils.book_append_sheet(wb, ws, t('excelSheetName')); // Using translated sheet name
       XLSX.writeFile(wb, 'zibon_ceramic_tile_inventory.xlsx');
       toast({ title: t("exportSuccessExcel"), description: t("tileListCardTitle") });
     } catch (error) {
@@ -254,17 +274,26 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
                              {t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
                            </span>
                         </div>
-                        <div className="flex justify-end space-x-2 mt-2">
-                          <Button variant="outline" size="sm" onClick={() => onEditTile(variant.id)}>
+                        {/* Individual variant edit/delete can be re-added here if needed by uncommenting and passing onEditVariant/onDeleteVariant */}
+                        {/* <div className="flex justify-end space-x-2 mt-2">
+                          <Button variant="outline" size="sm" onClick={() => onEditVariant(variant.id)}>
                             <Edit3 className="mr-1 h-3 w-3" /> {t('editButton')}
                           </Button>
-                          <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteClick(variant, group.modelNumberPrefix)}>
+                          <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteVariantClick(variant, group.modelNumberPrefix)}>
                             <Trash2 className="mr-1 h-3 w-3" /> {t('deleteButton')}
                           </Button>
-                        </div>
+                        </div> */}
                       </div>
                     ))}
                   </CardContent>
+                   <CardFooter className="pt-3 border-t flex justify-end space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => onEditGroup(group)}>
+                        <Edit className="mr-1 h-4 w-4" /> {t('editGroupButton')}
+                      </Button>
+                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteGroupClick(group)}>
+                        <Trash className="mr-1 h-4 w-4" /> {t('deleteGroupButton')}
+                      </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
@@ -321,14 +350,17 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteDialogTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {variantToDelete && t('deleteDialogDescriptionVariant', { 
-                type: variantToDelete.typeSuffix === "N/A" || variantToDelete.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variantToDelete.typeSuffix, 
-                modelNumber: variantToDelete.groupModelNumberPrefix 
+              {itemToDelete?.type === 'variant' && t('deleteDialogDescriptionVariant', { 
+                type: itemToDelete.data.typeSuffix === "N/A" || itemToDelete.data.typeSuffix === t('noTypeSuffix') ? t('baseModel') : itemToDelete.data.typeSuffix, 
+                modelNumber: itemToDelete.data.groupModelNumberPrefix 
+              })}
+              {itemToDelete?.type === 'group' && t('deleteDialogDescriptionGroup', { 
+                modelNumberPrefix: itemToDelete.data.modelNumberPrefix 
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setVariantToDelete(null)}>{t('deleteDialogCancel')}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setItemToDelete(null)}>{t('deleteDialogCancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
               {t('deleteDialogConfirm')}
             </AlertDialogAction>
@@ -340,3 +372,5 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile })
 };
 
 export default TileList;
+
+    

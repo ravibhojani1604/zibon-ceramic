@@ -17,11 +17,13 @@
   },
   
   "tileFormCardTitleAdd": "Add New Tile(s)",
-  "tileFormCardTitleEdit": "Edit Tile",
+  "tileFormCardTitleEdit": "Edit Tile Variant",
+  "tileFormCardTitleEditGroup": "Edit Tile Group",
   "tileFormCardDescriptionAdd": "Fill in the details below to add new tile(s) to your inventory.",
-  "tileFormCardDescriptionEdit": "Update the details for the selected tile.",
+  "tileFormCardDescriptionEdit": "Update the details for the selected tile variant.",
+  "tileFormCardDescriptionEditGroup": "Update the details for the selected tile group. This will affect all variants in this group.",
   "modelNumberPrefixLabel": "Model Number Prefix",
-  "modelNumberPrefixPlaceholder": "e.g., 1001 or Brand-A",
+  "modelNumberPrefixPlaceholder": "e.g., 1001",
   "modelNumberRequiredError": "A Model Number Prefix or a Type selection is required.",
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number if numeric.",
   "modelNumberPrefixPositiveError": "Numeric model prefix must be a positive number.",
@@ -46,7 +48,8 @@
   "atLeastOneTypeQuantityError": "If types are selected, at least one must have a quantity greater than 0.",
   "editModeSingleTypeError": "Only one type can be selected in edit mode.",
   "addTileButton": "Add Tile(s)",
-  "updateTileButton": "Update Tile",
+  "updateTileButton": "Update Variant",
+  "updateGroupButton": "Update Group",
   "cancelButton": "Cancel",
   "editingTypeLabel": "Editing Type",
   "baseModel": "Base",
@@ -66,16 +69,26 @@
   "tileCardQuantityShortLabel": "Qty: {{count}}",
   "editButton": "Edit",
   "deleteButton": "Delete",
+  "editGroupButton": "Edit Group",
+  "deleteGroupButton": "Delete Group",
   "rowsPerPage": "Rows per page:",
   "pageIndicator": "Page {{currentPage}} of {{totalPages}}",
   "previousPage": "Previous",
   "nextPage": "Next",
 
   "deleteDialogTitle": "Are you sure?",
-  "deleteDialogDescription": "This action cannot be undone. This will permanently delete the tile \"{{modelNumber}}\" from your inventory.",
   "deleteDialogDescriptionVariant": "This action cannot be undone. This will permanently delete the '{{type}}' variant of model \"{{modelNumber}}\".",
+  "deleteDialogDescriptionGroup": "This action cannot be undone. This will permanently delete all variants of the group with model prefix \"{{modelNumberPrefix}}\".",
   "deleteDialogCancel": "Cancel",
   "deleteDialogConfirm": "Delete",
+
+  "exportHeaderModelPrefix": "Model Number Prefix",
+  "exportHeaderType": "Type",
+  "exportHeaderFullModel": "Full Model Number",
+  "exportHeaderWidth": "Width (in)",
+  "exportHeaderHeight": "Height (in)",
+  "exportHeaderQuantity": "Quantity",
+  "excelSheetName": "Tile Inventory",
 
   "exportSuccessPDF": "Tile inventory has been exported to PDF.",
   "exportSuccessExcel": "Tile inventory has been exported to Excel.",
@@ -94,13 +107,20 @@
   "deleteErrorTitle": "Delete Error",
   "deleteErrorNotFound": "Could not find the tile to delete.",
   "deleteErrorDescription": "Failed to delete tile. Please try again.",
+  "deleteErrorGroupNotFound": "Could not find the group to delete or it has no variants.",
+  "deleteErrorGroupDescription": "Failed to delete group. Please try again.",
 
   "toastTileAddedTitle": "Tile(s) Added",
   "toastTilesAddedDescription": "{{count}} tile(s) added: {{modelNumbers}}.",
-  "toastTileUpdatedTitle": "Tile Updated",
+  "toastTileUpdatedTitle": "Tile Variant Updated",
   "toastTileUpdatedDescription": "The tile \"{{modelNumber}}\" has been updated successfully.",
-  "toastTileDeletedTitle": "Tile Deleted",
-  "toastTileDeletedDescription": "The tile \"{{modelNumber}}\" has been deleted."
+  "toastGroupUpdatedTitle": "Tile Group Updated",
+  "toastGroupUpdatedDescription": "The tile group with prefix \"{{modelNumberPrefix}}\" has been updated.",
+  "toastTileDeletedTitle": "Tile Variant Deleted",
+  "toastTileDeletedDescription": "The tile \"{{modelNumber}}\" has been deleted.",
+  "toastGroupDeletedTitle": "Tile Group Deleted",
+  "toastGroupDeletedDescription": "The tile group with prefix \"{{modelNumberPrefix}}\" and all its variants have been deleted."
 }
+    
 
     

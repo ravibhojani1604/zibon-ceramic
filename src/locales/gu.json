@@ -17,11 +17,13 @@
   },
 
   "tileFormCardTitleAdd": "નવી ટાઇલ(ટાઇલ્સ) ઉમેરો",
-  "tileFormCardTitleEdit": "ટાઇલ સંપાદિત કરો",
+  "tileFormCardTitleEdit": "ટાઇલ વેરિઅન્ટ સંપાદિત કરો",
+  "tileFormCardTitleEditGroup": "ટાઇલ ગ્રુપ સંપાદિત કરો",
   "tileFormCardDescriptionAdd": "તમારી ઇન્વેન્ટરીમાં નવી ટાઇલ(ટાઇલ્સ) ઉમેરવા માટે નીચેની વિગતો ભરો.",
-  "tileFormCardDescriptionEdit": "પસંદ કરેલી ટાઇલ માટે વિગતો અપડેટ કરો.",
+  "tileFormCardDescriptionEdit": "પસંદ કરેલ ટાઇલ વેરિઅન્ટ માટે વિગતો અપડેટ કરો.",
+  "tileFormCardDescriptionEditGroup": "પસંદ કરેલ ટાઇલ ગ્રુપ માટે વિગતો અપડેટ કરો. આ ગ્રુપના બધા વેરિઅન્ટને અસર કરશે.",
   "modelNumberPrefixLabel": "મોડેલ નંબર પ્રીફિક્સ",
-  "modelNumberPrefixPlaceholder": "દા.ત., ૧૦૦૧ અથવા બ્રાન્ડ-એ",
+  "modelNumberPrefixPlaceholder": "દા.ત., ૧૦૦૧",
   "modelNumberRequiredError": "મોડેલ નંબર પ્રીફિક્સ અથવા પ્રકારની પસંદગી આવશ્યક છે.",
   "modelNumberPrefixInvalidError": "જો આંકડાકીય હોય તો મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "આંકડાકીય મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
@@ -46,7 +48,8 @@
   "atLeastOneTypeQuantityError": "જો પ્રકારો પસંદ કરેલા હોય, તો ઓછામાં ઓછા એકનો જથ્થો 0 કરતા વધારે હોવો જોઈએ.",
   "editModeSingleTypeError": "સંપાદન મોડમાં ફક્ત એક જ પ્રકાર પસંદ કરી શકાય છે.",
   "addTileButton": "ટાઇલ(ટાઇલ્સ) ઉમેરો",
-  "updateTileButton": "ટાઇલ અપડેટ કરો",
+  "updateTileButton": "વેરિઅન્ટ અપડેટ કરો",
+  "updateGroupButton": "ગ્રુપ અપડેટ કરો",
   "cancelButton": "રદ કરો",
   "editingTypeLabel": "સંપાદિત કરી રહેલ પ્રકાર",
   "baseModel": "મૂળ",
@@ -66,16 +69,26 @@
   "tileCardQuantityShortLabel": "જથ્થો: {{count}}",
   "editButton": "સંપાદિત કરો",
   "deleteButton": "કાઢી નાખો",
+  "editGroupButton": "ગ્રુપ સંપાદિત કરો",
+  "deleteGroupButton": "ગ્રુપ કાઢી નાખો",
   "rowsPerPage": "પ્રતિ પૃષ્ઠ પંક્તિઓ:",
   "pageIndicator": "પૃષ્ઠ {{currentPage}} / {{totalPages}}",
   "previousPage": "પાછલું",
   "nextPage": "આગલું",
   
   "deleteDialogTitle": "શું તમે ચોક્કસ છો?",
-  "deleteDialogDescription": "આ ક્રિયાને પૂર્વવત્ કરી શકાતી નથી. આ તમારી ઇન્વેન્ટરીમાંથી \"{{modelNumber}}\" ટાઇલને કાયમ માટે કાઢી નાખશે.",
   "deleteDialogDescriptionVariant": "આ ક્રિયાને પૂર્વવત્ કરી શકાતી નથી. આ મોડેલ \"{{modelNumber}}\" ના '{{type}}' વેરિઅન્ટને કાયમ માટે કાઢી નાખશે.",
+  "deleteDialogDescriptionGroup": "આ ક્રિયાને પૂર્વવત્ કરી શકાતી નથી. આ મોડેલ પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળા ગ્રુપના બધા વેરિઅન્ટને કાયમ માટે કાઢી નાખશે.",
   "deleteDialogCancel": "રદ કરો",
   "deleteDialogConfirm": "કાઢી નાખો",
+
+  "exportHeaderModelPrefix": "મોડેલ નંબર પ્રીફિક્સ",
+  "exportHeaderType": "પ્રકાર",
+  "exportHeaderFullModel": "પૂર્ણ મોડેલ નંબર",
+  "exportHeaderWidth": "પહોળાઈ (ઇંચ)",
+  "exportHeaderHeight": "ઊંચાઈ (ઇંચ)",
+  "exportHeaderQuantity": "જથ્થો",
+  "excelSheetName": "ટાઇલ ઇન્વેન્ટરી",
 
   "exportSuccessPDF": "ટાઇલ ઇન્વેન્ટરી PDFમાં નિકાસ કરવામાં આવી છે.",
   "exportSuccessExcel": "ટાઇલ ઇન્વેન્ટરી Excelમાં નિકાસ કરવામાં આવી છે.",
@@ -94,13 +107,21 @@
   "deleteErrorTitle": "કાઢી નાખવામાં ભૂલ",
   "deleteErrorNotFound": "કાઢી નાખવા માટે ટાઇલ મળી નથી.",
   "deleteErrorDescription": "ટાઇલ કાઢી નાખવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.",
+  "deleteErrorGroupNotFound": "કાઢી નાખવા માટે ગ્રુપ મળ્યું નથી અથવા તેમાં કોઈ વેરિઅન્ટ નથી.",
+  "deleteErrorGroupDescription": "ગ્રુપ કાઢી નાખવામાં નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો.",
   
   "toastTileAddedTitle": "ટાઇલ(ટાઇલ્સ) ઉમેરાઈ",
   "toastTilesAddedDescription": "{{count}} ટાઇલ(ટાઇલ્સ) ઉમેરાઈ: {{modelNumbers}}.",
-  "toastTileUpdatedTitle": "ટાઇલ અપડેટ થઈ",
+  "toastTileUpdatedTitle": "ટાઇલ વેરિઅન્ટ અપડેટ થયું",
   "toastTileUpdatedDescription": "ટાઇલ \"{{modelNumber}}\" સફળતાપૂર્વક અપડેટ કરવામાં આવી છે.",
-  "toastTileDeletedTitle": "ટાઇલ કાઢી નાખવામાં આવી",
-  "toastTileDeletedDescription": "ટાઇલ \"{{modelNumber}}\" કાઢી નાખવામાં આવી છે."
+  "toastGroupUpdatedTitle": "ટાઇલ ગ્રુપ અપડેટ થયું",
+  "toastGroupUpdatedDescription": "પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળું ટાઇલ ગ્રુપ અપડેટ કરવામાં આવ્યું છે.",
+  "toastTileDeletedTitle": "ટાઇલ વેરિઅન્ટ કાઢી નાખવામાં આવ્યું",
+  "toastTileDeletedDescription": "ટાઇલ \"{{modelNumber}}\" કાઢી નાખવામાં આવી છે.",
+  "toastGroupDeletedTitle": "ટાઇલ ગ્રુપ કાઢી નાખવામાં આવ્યું",
+  "toastGroupDeletedDescription": "પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળું ટાઇલ ગ્રુપ અને તેના બધા વેરિઅન્ટ કાઢી નાખવામાં આવ્યા છે."
 }
+
+    
 
     

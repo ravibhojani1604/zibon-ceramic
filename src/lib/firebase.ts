@@ -5,6 +5,7 @@ import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
+// Check if all required environment variables are present
 const firebaseClientConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -12,22 +13,23 @@ const firebaseClientConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional, for Analytics
 };
 
 let appInstance: FirebaseApp | undefined;
 let authInstance: Auth | undefined;
 let dbInstance: Firestore | undefined;
 
-const missingEnvVars: string[] = [];
+let initializationPromise: Promise<void>;
 
+const missingEnvVars: string[] = [];
 if (!firebaseClientConfig.apiKey) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_API_KEY');
 if (!firebaseClientConfig.authDomain) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN');
 if (!firebaseClientConfig.projectId) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_PROJECT_ID');
 if (!firebaseClientConfig.storageBucket) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET');
 if (!firebaseClientConfig.messagingSenderId) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID');
 if (!firebaseClientConfig.appId) missingEnvVars.push('NEXT_PUBLIC_FIREBASE_APP_ID');
-
-let initializationPromise: Promise<void>;
+// measurementId is optional for core functionality, so not strictly checked here unless needed.
 
 if (missingEnvVars.length > 0) {
   const errorMessage = `Firebase configuration is incomplete. The following environment variables are missing or empty: ${missingEnvVars.join(", ")}. Please check your .env.local file or server environment variables.`;
@@ -39,6 +41,7 @@ if (missingEnvVars.length > 0) {
   authInstance = undefined;
   dbInstance = undefined;
 } else {
+   // Initialize Firebase
   if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on the client-side
     if (!getApps().length) {
       try {
@@ -62,7 +65,8 @@ if (missingEnvVars.length > 0) {
   } else {
     // On the server, these instances will be undefined unless initialized differently.
     // For this app structure, client-side initialization is primary.
-    initializationPromise = Promise.resolve(); // Or reject if client-only
+    // Resolve the promise, but instances will be undefined until client-side init.
+    initializationPromise = Promise.resolve();
   }
 }
 

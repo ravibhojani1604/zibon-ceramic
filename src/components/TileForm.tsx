@@ -21,7 +21,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added import
 
 // Suffix constants
 const SUFFIX_L = "L";
@@ -169,15 +168,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   useEffect(() => {
     if (!isEditing) {
       const allChecked = suffixConfig.every(sf => !!form.getValues(sf.name));
-      // Only update selectAllSuffixes if its current state differs from allChecked
-      // This prevents an infinite loop if selectAllSuffixes itself is in the dependency array of another effect
-      // that might trigger a form value change.
       if (allChecked !== selectAllSuffixes) { 
         setSelectAllSuffixes(allChecked);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [isEditing, form, selectAllSuffixes, ...watchedSuffixes]); // Added watchedSuffixes to correctly track changes
+  }, [isEditing, form, selectAllSuffixes, ...watchedSuffixes]); 
   
 
   useEffect(() => {
@@ -186,11 +182,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       const resetValues: Partial<TileFormData> = {
         width: editingTile.width,
         height: editingTile.height,
-        quantity: editingTile.quantity, // Use global quantity for editing
+        quantity: editingTile.quantity, 
       };
       suffixConfig.forEach(sf => {
         resetValues[sf.name] = false;
-        resetValues[sf.quantityName] = undefined; // Per-suffix quantities not used in edit mode's form
+        resetValues[sf.quantityName] = undefined; 
       });
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
@@ -254,7 +250,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   return (
     <CardContent className="pt-6">
       <Form {...form}>
-        <ScrollArea className="max-h-[60vh] pr-2"> {/* Added ScrollArea and padding for scrollbar */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
@@ -324,7 +319,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                           </FormItem>
                         )}
                       />
-                      {/* Show per-suffix quantity if !isEditing and this suffix is checked */}
                       {!isEditing && form.watch(sf.name) && (
                         <FormField
                           control={form.control}
@@ -351,11 +345,10 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                     </div>
                   ))}
                 </div>
-                {/* Display model number related errors that might not be tied to a single field if prefix is involved */}
                 {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || 
                  form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && 
-                 !form.formState.dirtyFields.modelNumberPrefix && // Show only if not specific to prefix field input
-                   Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') // Avoid double messaging
+                 !form.formState.dirtyFields.modelNumberPrefix && 
+                   Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') 
                    && (
                    <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
                 )}
@@ -404,7 +397,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               />
             </div>
             
-            {/* Show global quantity field if in edit mode, OR (not editing AND no suffixes checked AND prefix is provided) */}
             {showGlobalQuantityField && (
               <FormField
                 control={form.control}
@@ -430,12 +422,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               />
             )}
 
-            <div className="flex space-x-2 pt-2"> {/* Added pt-2 for spacing before buttons */}
+            <div className="flex space-x-2 pt-2"> 
               <Button type="submit" className="w-full">
                 {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                 {isEditing ? t('updateTileButton') : t('addTileButton')}
               </Button>
-              {(isEditing || !isEditing) && ( // Show cancel always when in dialog
+              {(isEditing || !isEditing) && ( 
                 <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); setSelectAllSuffixes(false); }} className="w-full">
                      <XCircle className="mr-2 h-4 w-4" />
                     {t('cancelButton')}
@@ -443,11 +435,9 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               )}
             </div>
           </form>
-        </ScrollArea>
       </Form>
     </CardContent>
   );
 };
 
 export default TileForm;
-

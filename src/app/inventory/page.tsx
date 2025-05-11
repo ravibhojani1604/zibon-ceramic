@@ -7,25 +7,22 @@ import TileList from "@/components/TileList";
 import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut } from "lucide-react";
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Added Card imports for skeleton
+import { PlusCircle } from "lucide-react";
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  // DialogHeader, // Not used
-  // DialogTitle, // Not used in this simplified version of dialog
 } from "@/components/ui/dialog";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 import { db, ensureFirebaseInitialized } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
 const TILES_COLLECTION = "globalTilesInventory";
+const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; 
 
 export default function InventoryPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -34,21 +31,13 @@ export default function InventoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { t, locale } = useTranslation();
-  const { currentUser, logout } = useAuth();
-  const router = useRouter();
-
 
   useEffect(() => {
-    if (!currentUser) {
-      router.push('/'); // Redirect to login if not authenticated
-      return;
-    }
-
     let unsubscribe = () => {};
 
     const setupFirestoreListener = async () => {
       try {
-        await ensureFirebaseInitialized(); // Ensure Firebase is ready
+        await ensureFirebaseInitialized(); 
         if (!db) {
           console.error("Firestore is not initialized.");
           toast({ title: "Error", description: "Failed to connect to database.", variant: "destructive" });
@@ -60,7 +49,7 @@ export default function InventoryPage() {
         
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
           const fetchedTiles: Tile[] = [];
-          querySnapshot.forEach((docSnapshot) => { // Renamed doc to docSnapshot to avoid conflict
+          querySnapshot.forEach((docSnapshot) => {
             const data = docSnapshot.data();
             fetchedTiles.push({
               id: docSnapshot.id,
@@ -68,7 +57,7 @@ export default function InventoryPage() {
               width: data.width,
               height: data.height,
               quantity: data.quantity,
-              createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(), // Handle Timestamp
+              createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
             });
           });
           setTiles(fetchedTiles);
@@ -87,8 +76,8 @@ export default function InventoryPage() {
 
     setupFirestoreListener();
 
-    return () => unsubscribe(); // Cleanup listener on unmount
-  }, [currentUser, router, toast, t]);
+    return () => unsubscribe(); 
+  }, [toast, t]);
 
 
   useEffect(() => {
@@ -102,8 +91,8 @@ export default function InventoryPage() {
 
   const handleSaveTile = useCallback(async (data: TileFormData, id?: string) => {
     await ensureFirebaseInitialized();
-    if (!currentUser || !db) {
-      toast({ title: "Authentication or Database Error", description: "You must be logged in and database connected to save tiles.", variant: "destructive"});
+    if (!db) {
+      toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
       return;
     }
     
@@ -140,7 +129,7 @@ export default function InventoryPage() {
       } else {
         await addDoc(collection(db, TILES_COLLECTION), {
           ...tileDataForStorage,
-          createdAt: serverTimestamp(), // Add server timestamp for new tiles
+          createdAt: serverTimestamp(), 
         });
         toast({
           title: t('toastTileAddedTitle'),
@@ -154,7 +143,7 @@ export default function InventoryPage() {
       console.error("Error saving tile:", error);
       toast({ title: "Save Error", description: "Failed to save tile. Please try again.", variant: "destructive" });
     }
-  }, [currentUser, toast, t]);
+  }, [toast, t]);
 
   const handleEditTile = useCallback((tile: Tile) => {
     setEditingTile(tile);
@@ -168,8 +157,8 @@ export default function InventoryPage() {
 
   const handleDeleteTile = useCallback(async (tileId: string) => {
     await ensureFirebaseInitialized();
-    if (!currentUser || !db) {
-      toast({ title: "Authentication or Database Error", description: "You must be logged in and database connected to delete tiles.", variant: "destructive"});
+    if (!db) {
+      toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
       return;
     }
 
@@ -194,29 +183,15 @@ export default function InventoryPage() {
       console.error("Error deleting tile:", error);
       toast({ title: "Delete Error", description: "Failed to delete tile. Please try again.", variant: "destructive" });
     }
-  }, [currentUser, toast, tiles, editingTile, t]);
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.push('/');
-      toast({ title: t('auth.logoutSuccessTitle'), description: t('auth.logoutSuccessMessage') });
-    } catch (error) {
-      console.error("Logout failed:", error);
-      toast({ title: t('auth.logoutErrorTitle'), description: t('auth.logoutErrorMessage'), variant: "destructive" });
-    }
-  };
+  }, [toast, tiles, editingTile, t]);
   
-  if (!currentUser && isLoading) { // Show skeleton if loading and no user (initial state)
+  if (isLoading) { 
      return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Skeleton className="w-full h-full" />
       </div>
     );
   }
-  // If still no current user after loading (e.g. redirect hasn't happened or failed auth),
-  // router.push should handle it, or show a message, but for now, this check is fine.
-
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -245,11 +220,6 @@ export default function InventoryPage() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <ThemeSwitcher /> 
-            {currentUser && (
-              <Button variant="outline" size="icon" onClick={handleLogout} aria-label={t('auth.logoutButton')}>
-                <LogOut className="h-[1.2rem] w-[1.2rem]" />
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -272,7 +242,6 @@ export default function InventoryPage() {
           }}
         >
           <DialogContent className="sm:max-w-lg">
-            {/* Removed DialogHeader and DialogTitle for simplicity, TileForm has its own title */}
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
@@ -281,7 +250,7 @@ export default function InventoryPage() {
           </DialogContent>
         </Dialog>
         
-        {isLoading ? (
+        {isLoading ? ( // This specific isLoading check might be redundant if the top-level one handles it.
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
               <Card key={index} className="w-full max-w-xs sm:w-72 shadow-md">
@@ -315,9 +284,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-
-// This constant is used in TileForm.tsx, but its definition must be accessible here
-// if handleSaveTile uses it directly, or it should be passed from TileForm if more complex.
-// For now, assuming TileForm handles the translation to empty string if SELECT_ITEM_VALUE_FOR_NONE_SUFFIX is used.
-const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; 

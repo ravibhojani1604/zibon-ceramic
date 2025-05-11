@@ -5,7 +5,6 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Added Toaster import
 import { I18nProvider } from '@/context/i18n'; // Import I18nProvider
 import { ThemeProvider } from '@/context/ThemeContext'; // Import ThemeProvider
-import { AuthProvider } from '@/context/AuthContext'; // Import AuthProvider
 
 const geistSans = Geist({ // Corrected usage
   variable: '--font-geist-sans',
@@ -37,10 +36,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <I18nProvider>
-            <AuthProvider>
               {children}
               <Toaster />
-            </AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

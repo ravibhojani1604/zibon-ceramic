@@ -11,31 +11,6 @@
   "themeDark": "Dark",
   "themeSystem": "System",
 
-  "auth": {
-    "loginTitle": "Login to Zibon Ceramic",
-    "registerTitle": "Create Account",
-    "emailLabel": "Email",
-    "emailPlaceholder": "you@example.com",
-    "passwordLabel": "Password",
-    "passwordPlaceholder": "••••••••",
-    "loginButton": "Login",
-    "registerButton": "Register",
-    "orContinueWith": "Or continue with",
-    "googleLoginButton": "Login with Google",
-    "githubLoginButton": "Login with GitHub",
-    "noAccount": "Don't have an account?",
-    "alreadyAccount": "Already have an account?",
-    "signUpLink": "Sign up",
-    "signInLink": "Sign in",
-    "logoutButton": "Logout",
-    "logoutSuccessTitle": "Logged Out",
-    "logoutSuccessMessage": "You have been successfully logged out.",
-    "logoutErrorTitle": "Logout Failed",
-    "logoutErrorMessage": "Could not log out. Please try again.",
-    "loginErrorTitle": "Login Failed",
-    "registerErrorTitle": "Registration Failed"
-  },
-
   "errorMessages": {
     "fetchErrorTitle": "Fetch Error",
     "fetchErrorDescription": "Could not load tile data. Please check your connection or try again later.",

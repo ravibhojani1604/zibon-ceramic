@@ -21,6 +21,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 // Suffix constants
 const SUFFIX_L = "L";
@@ -168,12 +170,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   useEffect(() => {
     if (!isEditing) {
       const allChecked = suffixConfig.every(sf => !!form.getValues(sf.name));
-      if (allChecked !== selectAllSuffixes) { 
+      // Only update selectAllSuffixes if its state differs from allChecked to prevent loops
+      if (allChecked !== selectAllSuffixes) {
         setSelectAllSuffixes(allChecked);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [isEditing, form, selectAllSuffixes, ...watchedSuffixes]); 
+  // form.getValues is stable, but watchedSuffixes change, so including them in deps array.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, form, selectAllSuffixes, ...watchedSuffixes]);
   
 
   useEffect(() => {
@@ -211,11 +215,13 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             if (!isNaN(num) && String(num) === mnRemainder) { 
                  resetValues.modelNumberPrefix = num;
             } else {
-                if(!matchedSuffixConf) {
+                if(!matchedSuffixConf) { // If no suffix matched but there's a remainder, it might be just a prefix
                     const numPrefix = parseFloat(fullMN);
-                    if (!isNaN(numPrefix) && String(numPrefix) === fullMN) {
+                    if (!isNaN(numPrefix) && String(numPrefix) === fullMN) { // check if the fullMN is a number
                         resetValues.modelNumberPrefix = numPrefix;
                     }
+                    // If fullMN is not a simple number, it means it was "N/A" or some unparsed string.
+                    // In this case, modelNumberPrefix remains undefined (or as per default if N/A case has specific logic)
                 }
             }
         }
@@ -224,10 +230,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     } else {
       form.reset(defaultFormValues);
       if (selectAllSuffixes) { 
-        setSelectAllSuffixes(false);
+        setSelectAllSuffixes(false); // Reset this when form is reset for adding new tile
       }
     }
-  }, [editingTile, form, defaultFormValues, selectAllSuffixes]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTile, form, defaultFormValues]); // Removed selectAllSuffixes from here to avoid loop with other useEffect
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
@@ -250,7 +257,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   return (
     <CardContent className="pt-6">
       <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <ScrollArea className="h-full"> {/* Make the form content scrollable if it overflows */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pr-4"> {/* Added pr-4 for scrollbar spacing */}
             <FormField
               control={form.control}
               name="modelNumberPrefix"
@@ -282,66 +290,69 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         onCheckedChange={handleSelectAllChange}
                         id="select-all-suffixes"
                         disabled={isEditing}
+                        aria-label={t('selectAllSuffixes')}
                       />
                     </FormControl>
-                    <FormLabel htmlFor="select-all-suffixes" className="font-normal">
+                    <FormLabel htmlFor="select-all-suffixes" className="font-normal cursor-pointer select-none">
                       {t('selectAllSuffixes')}
                     </FormLabel>
                   </FormItem>
                 )}
-                <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-y-3 gap-x-3 sm:grid-cols-2"> {/* Adjusted grid columns */}
                   {suffixConfig.map(sf => (
-                    <div key={sf.key} className="space-y-2">
-                      <FormField
-                        control={form.control}
-                        name={sf.name}
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value ?? false}
-                                onCheckedChange={(checked) => {
-                                  if (isEditing) {
-                                    if (typeof checked === 'boolean') {
-                                      suffixConfig.forEach(s => {
-                                        form.setValue(s.name, s.name === sf.name ? checked : false, {shouldValidate: true});
-                                      });
-                                    }
-                                  } else {
-                                    field.onChange(checked); 
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {sf.label}
-                            </FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                      {!isEditing && form.watch(sf.name) && (
+                    <div key={sf.key} className="rounded-md border p-3 shadow-sm">
+                      <div className="flex flex-row items-center justify-between space-x-3">
                         <FormField
                           control={form.control}
-                          name={sf.quantityName}
-                          render={({ field: qtyField }) => (
-                            <FormItem className="pl-3">
-                              <FormLabel htmlFor={sf.quantityName} className="text-xs">{t('quantityForSuffixLabel', {suffix: sf.label})}</FormLabel>
+                          name={sf.name}
+                          render={({ field }) => (
+                            <div className="flex items-center space-x-2">
                               <FormControl>
-                                <Input
-                                  id={sf.quantityName}
-                                  type="number"
-                                  placeholder={t('quantityPlaceholder')}
-                                  {...qtyField}
-                                  value={qtyField.value ?? ''}
-                                  onChange={e => qtyField.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                                  className="h-8 text-sm"
+                                <Checkbox
+                                  checked={field.value ?? false}
+                                  onCheckedChange={(checked) => {
+                                    if (isEditing) {
+                                      if (typeof checked === 'boolean') {
+                                        suffixConfig.forEach(s => {
+                                          form.setValue(s.name, s.name === sf.name ? checked : false, {shouldValidate: true});
+                                        });
+                                      }
+                                    } else {
+                                      field.onChange(checked); 
+                                    }
+                                  }}
+                                  id={`checkbox-${sf.key}`}
                                 />
                               </FormControl>
-                              <FormMessage />
-                            </FormItem>
+                              <FormLabel htmlFor={`checkbox-${sf.key}`} className="font-normal cursor-pointer select-none">
+                                {sf.label}
+                              </FormLabel>
+                            </div>
                           )}
                         />
-                      )}
+                        {!isEditing && form.watch(sf.name) && (
+                          <FormField
+                            control={form.control}
+                            name={sf.quantityName}
+                            render={({ field: qtyField }) => (
+                              <FormItem className="w-24"> {/* Adjusted width for quantity input */}
+                                <FormControl>
+                                  <Input
+                                    id={sf.quantityName}
+                                    type="number"
+                                    placeholder={t('quantityPlaceholder')}
+                                    {...qtyField}
+                                    value={qtyField.value ?? ''}
+                                    onChange={e => qtyField.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                    className="h-8 text-sm"
+                                  />
+                                </FormControl>
+                                <FormMessage className="text-xs pt-1" />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -435,9 +446,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               )}
             </div>
           </form>
+        </ScrollArea>
       </Form>
     </CardContent>
   );
 };
 
 export default TileForm;
+

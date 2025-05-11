@@ -18,12 +18,11 @@ import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { getFirebaseInstances } from '@/lib/firebase'; 
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader as MUICardHeader } from '@/components/ui/card'; 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-
 
 const TILES_COLLECTION = "globalTilesInventory";
 
@@ -37,14 +36,12 @@ const typeConfigPage = [
   { key: "F" as const, name: "type_F" as const, label: "F", quantityName: "quantity_F" as const },
 ] as const;
 
-
 export default function InventoryPage() {
-  const { user, loading: authLoading, logout, isLoggingOut } = useAuth(); // Added isLoggingOut
+  const { user, loading: authLoading, logout, isLoggingOut } = useAuth();
   const router = useRouter();
 
   const [rawTiles, setRawTiles] = useState<Tile[]>([]);
   const [groupedTiles, setGroupedTiles] = useState<GroupedDisplayTile[]>([]);
-  
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true); 
   const { toast } = useToast();
@@ -55,17 +52,9 @@ export default function InventoryPage() {
   const [editingVariant, setEditingVariant] = useState<Tile | null>(null); 
   const [editingGroup, setEditingGroup] = useState<GroupedDisplayTile | null>(null);
 
-
-  useEffect(() => {
-    if (!authLoading && !user && !isLoggingOut) { // Also check isLoggingOut
-      router.push('/login');
-    }
-  }, [user, authLoading, router, isLoggingOut]);
-
-
   const groupTiles = useCallback((firestoreTiles: Tile[]): GroupedDisplayTile[] => {
     const groups = new Map<string, GroupedDisplayTile>();
-    const knownTypesSorted = typeConfigPage.map(tc => tc.label); 
+    const knownTypesSorted = typeConfigPage.map(tc => tc.label);
 
     firestoreTiles.forEach(tile => {
       let modelNumberPrefix = tile.modelNumber;
@@ -78,15 +67,15 @@ export default function InventoryPage() {
           modelNumberPrefix = tile.modelNumber.substring(0, tile.modelNumber.length - (type.length + 1));
           typeSuffix = type;
           break;
-        } else if (tile.modelNumber === type) { 
-          modelNumberPrefix = ""; 
+        } else if (tile.modelNumber === type) {
+          modelNumberPrefix = "";
           typeSuffix = type;
           break;
         }
       }
-      
+
       if (modelNumberPrefix === tile.modelNumber && tile.modelNumber !== "N/A" && typeSuffix === "") {
-         // typeSuffix remains ""
+        // typeSuffix remains ""
       } else if (modelNumberPrefix === "N/A" && typeSuffix === "") {
         // modelNumberPrefix is "N/A", typeSuffix is ""
       }
@@ -111,37 +100,35 @@ export default function InventoryPage() {
         quantity: tile.quantity,
         createdAt: tile.createdAt,
       });
-      
+
       group.variants.sort((a, b) => {
         const typeOrder = knownTypesSorted.concat(["N/A", t('noTypeSuffix')]);
         return typeOrder.indexOf(a.typeSuffix) - typeOrder.indexOf(b.typeSuffix);
       });
 
       if (tile.createdAt && (!group.groupCreatedAt || tile.createdAt < group.groupCreatedAt)) {
-          group.groupCreatedAt = tile.createdAt;
+        group.groupCreatedAt = tile.createdAt;
       }
     });
-    
+
     return Array.from(groups.values()).sort((a,b) => (b.groupCreatedAt?.getTime() || 0) - (a.groupCreatedAt?.getTime() || 0));
   }, [t]);
 
   useEffect(() => {
-    // If no user or if logout process has started, do not set up listener.
-    // Cleanup from previous effect run (if any) will handle unsubscription.
+    if (authLoading) return; // Wait for auth to resolve
+
     if (!user || isLoggingOut) {
       console.log(`InventoryPage: Firestore listener guard. User: ${!!user}, IsLoggingOut: ${isLoggingOut}. Ensuring no active listener.`);
-      // If user is null or logging out, and a listener was active from a previous state,
-      // the cleanup function (return () => unsubscribe()) from *that* effect run will be called.
-      // We then return early here to prevent setting up a new one.
-      setRawTiles([]); // Clear data if user logs out or is logging out
+      setRawTiles([]);
       setGroupedTiles([]);
-      setIsLoading(false); // No longer loading if no user/logging out
+      setIsLoading(false); // Not loading if no user or logging out
+      if (!user && !isLoggingOut && router) router.push('/login'); // Redirect if not logged in
       return;
     }
 
     let unsubscribe = () => {};
     const setupFirestoreListener = async () => {
-      setIsLoading(true); 
+      setIsLoading(true);
       try {
         const { db } = await getFirebaseInstances();
         if (!db) {
@@ -154,7 +141,7 @@ export default function InventoryPage() {
         console.log("InventoryPage: Setting up Firestore listener.");
         const tilesQuery = query(collection(db, TILES_COLLECTION), orderBy("createdAt", "desc"));
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
-          if (isLoggingOut) { // Double check, in case snapshot arrives while isLoggingOut becomes true
+          if (isLoggingOut) {
             console.log("InventoryPage: isLoggingOut became true during snapshot processing. Ignoring snapshot.");
             return;
           }
@@ -186,27 +173,18 @@ export default function InventoryPage() {
     };
 
     setupFirestoreListener();
-    
-    return () => {
-        console.log("InventoryPage: Firestore listener cleanup function called.");
-        unsubscribe();
-    };
-  }, [user, isLoggingOut, toast, t, groupTiles]); // Added isLoggingOut
 
+    return () => {
+      console.log("InventoryPage: Firestore listener cleanup function called.");
+      unsubscribe();
+    };
+  }, [user, authLoading, isLoggingOut, toast, t, groupTiles, router]);
 
   useEffect(() => {
     document.title = t('appTitle');
   }, [t, locale]);
 
-  const handleAddNewTileClick = () => {
-    setFormMode('add');
-    setInitialDataForForm(createInitialDefaultFormValues());
-    setEditingVariant(null);
-    setEditingGroup(null);
-    setIsFormOpen(true);
-  };
-  
-  const prepareDataForGroupEdit = (group: GroupedDisplayTile): TileFormData => {
+  const prepareDataForGroupEdit = useCallback((group: GroupedDisplayTile): TileFormData => {
     const formData: TileFormData = createInitialDefaultFormValues();
     const numPrefix = parseFloat(group.modelNumberPrefix);
     formData.modelNumberPrefix = isNaN(numPrefix) || group.modelNumberPrefix === "" ? (group.modelNumberPrefix === "N/A" ? undefined : group.modelNumberPrefix) : numPrefix;
@@ -226,13 +204,37 @@ export default function InventoryPage() {
 
     const baseVariant = group.variants.find(v => v.typeSuffix === t('noTypeSuffix') || v.typeSuffix === "N/A" || v.typeSuffix === "");
     if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { 
-        if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
-            formData.quantity = baseVariant.quantity;
-        }
+      if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
+        formData.quantity = baseVariant.quantity;
+      }
     }
     return formData;
-  };
+  }, [t]);
 
+
+  // Authentication and Redirection Rendering
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background text-foreground">
+        {t('loadingAuth')}
+      </div>
+    );
+  }
+
+  if (!user && !isLoggingOut) {
+    // router.push has been moved to useEffect to prevent rendering during another component's render phase
+    return null; // Render nothing while redirecting
+  }
+
+
+  const handleAddNewTileClick = () => {
+    setFormMode('add');
+    setInitialDataForForm(createInitialDefaultFormValues());
+    setEditingVariant(null);
+    setEditingGroup(null);
+    setIsFormOpen(true);
+  };
+  
 
   const handleSaveTile = useCallback(async (data: TileFormData) => {
     const { db } = await getFirebaseInstances();
@@ -260,46 +262,46 @@ export default function InventoryPage() {
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
 
         if (checkedTypes.length > 0) {
-            for (const sf of checkedTypes) {
-                const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
-                const currentQuantity = data[sf.quantityName] ?? 0;
-                if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) { 
-                     modelsToCreateOrUpdateMap.set(model, {
-                        ...tileBaseProperties, 
-                        modelNumber: model,
-                        quantity: currentQuantity,
-                        createdAt: serverTimestamp(), 
-                    });
-                }
+          for (const sf of checkedTypes) {
+            const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
+            const currentQuantity = data[sf.quantityName] ?? 0;
+            if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) { 
+              modelsToCreateOrUpdateMap.set(model, {
+                ...tileBaseProperties, 
+                modelNumber: model,
+                quantity: currentQuantity,
+                createdAt: serverTimestamp(), 
+              });
             }
+          }
         } else if (modelNumberPrefixStr) { 
-            const quantity = data.quantity ?? 0; 
-             if (quantity > 0 && !modelsToCreateOrUpdateMap.has(modelNumberPrefixStr)){
-                modelsToCreateOrUpdateMap.set(modelNumberPrefixStr, {
-                     ...tileBaseProperties,
-                    modelNumber: modelNumberPrefixStr,
-                    quantity: quantity,
-                    createdAt: serverTimestamp(),
-                });
-            }
+          const quantity = data.quantity ?? 0; 
+          if (quantity > 0 && !modelsToCreateOrUpdateMap.has(modelNumberPrefixStr)){
+            modelsToCreateOrUpdateMap.set(modelNumberPrefixStr, {
+              ...tileBaseProperties,
+              modelNumber: modelNumberPrefixStr,
+              quantity: quantity,
+              createdAt: serverTimestamp(),
+            });
+          }
         } else { 
-             const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateOrUpdateMap.has("N/A")) { 
-                 modelsToCreateOrUpdateMap.set("N/A", {
-                     ...tileBaseProperties,
-                    modelNumber: "N/A", 
-                    quantity: quantity,
-                    createdAt: serverTimestamp(),
-                });
-            }
+          const quantity = data.quantity ?? 0;
+          if (quantity > 0 && !modelsToCreateOrUpdateMap.has("N/A")) { 
+            modelsToCreateOrUpdateMap.set("N/A", {
+              ...tileBaseProperties,
+              modelNumber: "N/A", 
+              quantity: quantity,
+              createdAt: serverTimestamp(),
+            });
+          }
         }
         
         const modelsToCreate = Array.from(modelsToCreateOrUpdateMap.keys());
         const tileDataObjects = Array.from(modelsToCreateOrUpdateMap.values());
 
         if (tileDataObjects.length === 0 && modelsToCreate.length === 0) {
-           toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
-           return;
+          toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
+          return;
         }
 
         tileDataObjects.forEach(tileData => {
@@ -311,54 +313,53 @@ export default function InventoryPage() {
           title: t('toastGroupUpdatedTitle'),
           description: t('toastGroupUpdatedDescription', { modelNumberPrefix: modelNumberPrefixStr || "N/A" }),
         });
-
       } else { 
         const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>();
         const checkedTypes = typeConfigPage.filter(sf => data[sf.name]);
 
         if (checkedTypes.length > 0) {
-            for (const sf of checkedTypes) {
-                const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
-                const currentQuantity = data[sf.quantityName] ?? 0;
+          for (const sf of checkedTypes) {
+            const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
+            const currentQuantity = data[sf.quantityName] ?? 0;
 
-                if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
-                     modelsToCreateMap.set(model, {
-                        ...tileBaseProperties,
-                        modelNumber: model,
-                        quantity: currentQuantity,
-                        createdAt: serverTimestamp(),
-                    });
-                }
+            if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
+              modelsToCreateMap.set(model, {
+                ...tileBaseProperties,
+                modelNumber: model,
+                quantity: currentQuantity,
+                createdAt: serverTimestamp(),
+              });
             }
+          }
         } else if (modelNumberPrefixStr) { 
-            const quantity = data.quantity ?? 0; 
-             if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){ 
-                modelsToCreateMap.set(modelNumberPrefixStr, {
-                     ...tileBaseProperties,
-                    modelNumber: modelNumberPrefixStr,
-                    quantity: quantity,
-                    createdAt: serverTimestamp(),
-                });
-            }
+          const quantity = data.quantity ?? 0; 
+          if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){ 
+            modelsToCreateMap.set(modelNumberPrefixStr, {
+              ...tileBaseProperties,
+              modelNumber: modelNumberPrefixStr,
+              quantity: quantity,
+              createdAt: serverTimestamp(),
+            });
+          }
         } else { 
-             const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { 
-                 modelsToCreateMap.set("N/A", {
-                     ...tileBaseProperties,
-                    modelNumber: "N/A", 
-                    quantity: quantity,
-                    createdAt: serverTimestamp(),
-                });
-            }
+          const quantity = data.quantity ?? 0;
+          if (quantity > 0 && !modelsToCreateMap.has("N/A")) { 
+            modelsToCreateMap.set("N/A", {
+              ...tileBaseProperties,
+              modelNumber: "N/A", 
+              quantity: quantity,
+              createdAt: serverTimestamp(),
+            });
+          }
         }
 
         const modelsToCreate = Array.from(modelsToCreateMap.keys());
         const tileDataObjects = Array.from(modelsToCreateMap.values());
 
         if (tileDataObjects.length === 0 ) { 
-           toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
-           setIsFormOpen(true); 
-           return;
+          toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
+          setIsFormOpen(true); 
+          return;
         }
 
         const batch = writeBatch(db);
@@ -381,7 +382,7 @@ export default function InventoryPage() {
       console.error("Error saving tile(s):", error);
       toast({ title: t("saveErrorTitle"), description: t("saveErrorDescription"), variant: "destructive" });
     }
-  }, [toast, t, formMode, editingGroup]); // Removed editingVariant as it's not used in this simplified flow
+  }, [toast, t, formMode, editingGroup]);
 
   const handleEditGroup = useCallback((group: GroupedDisplayTile) => {
     setFormMode('editGroup');
@@ -405,8 +406,8 @@ export default function InventoryPage() {
       return;
     }
     if (!group || group.variants.length === 0) {
-        toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupNotFound"), variant: "destructive"});
-        return;
+      toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupNotFound"), variant: "destructive"});
+      return;
     }
 
     try {
@@ -445,40 +446,26 @@ export default function InventoryPage() {
     return "";
   }, [formMode, t]);
 
-  // Show loading skeleton if auth is loading OR if user is not yet available (and not in logout process)
-  if (authLoading || (!user && !isLoggingOut)) {
-    return (
-         <div className="flex items-center justify-center min-h-screen bg-background">
-            <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
-              <Skeleton className="h-16 w-16 text-primary mx-auto animate-spin" data-ai-hint="ceramic tile"/>
-              <Skeleton className="h-8 w-3/4 mx-auto" />
-              <Skeleton className="h-6 w-1/2 mx-auto" />
-            </div>
-         </div>
-    );
-  }
-
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="py-6 bg-card border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <svg
-                className="h-10 w-10 text-primary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                data-ai-hint="tiles pattern"
-              >
-                <path d="M3 3h7v7H3z" />
-                <path d="M14 3h7v7h-7z" />
-                <path d="M3 14h7v7H3z" />
-                <path d="M14 14h7v7h-7z" />
-              </svg>
+              className="h-10 w-10 text-primary"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              data-ai-hint="tiles pattern"
+            >
+              <path d="M3 3h7v7H3z" />
+              <path d="M14 3h7v7h-7z" />
+              <path d="M3 14h7v7H3z" />
+              <path d="M14 14h7v7h-7z" />
+            </svg>
             <h1 className="text-3xl font-bold text-primary tracking-tight">
               {t('headerTitle')}
             </h1>
@@ -487,8 +474,8 @@ export default function InventoryPage() {
             <LanguageSwitcher />
             <ThemeSwitcher />
             <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                {t('logoutButton')}
+              <LogOut className="mr-2 h-4 w-4" />
+              {t('logoutButton')}
             </Button>
           </div>
         </div>
@@ -531,27 +518,27 @@ export default function InventoryPage() {
                   onCancelEdit={handleCancelEditOnForm}
                   isEditMode={formMode === 'editGroup'} 
                   isGroupEdit={formMode === 'editGroup'} 
-                  key={formMode === 'add' ? 'add' : (editingGroup?.groupKey)} 
+                  key={formMode === 'add' ? 'add' : (editingGroup?.groupKey || 'edit-no-group')} 
                 />
               )}
-               {formMode === 'add' && !initialDataForForm && ( 
-                 <TileForm
-                    onSaveTile={handleSaveTile}
-                    initialValues={createInitialDefaultFormValues()}
-                    onCancelEdit={handleCancelEditOnForm}
-                    isEditMode={false}
-                    isGroupEdit={false}
-                    key="add-empty"
-                 />
-               )}
+              {formMode === 'add' && !initialDataForForm && ( 
+                <TileForm
+                  onSaveTile={handleSaveTile}
+                  initialValues={createInitialDefaultFormValues()}
+                  onCancelEdit={handleCancelEditOnForm}
+                  isEditMode={false}
+                  isGroupEdit={false}
+                  key="add-empty"
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
-        {isLoading && !isLoggingOut ? ( // Show skeleton only if loading and not in logout process
+        {isLoading && !isLoggingOut ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
-               <Card key={index} className="w-full shadow-md">
+              <Card key={index} className="w-full shadow-md">
                 <MUICardHeader className="pb-2">
                   <Skeleton className="h-6 w-3/4" />
                 </MUICardHeader>
@@ -581,5 +568,3 @@ export default function InventoryPage() {
       </footer>
     </div>
   );
-}
-    

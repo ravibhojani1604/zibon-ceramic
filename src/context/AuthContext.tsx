@@ -52,20 +52,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // setLoading(true); // Already true by default
       try {
-        // console.log("Attempting to ensure Firebase is initialized for AuthProvider...");
         const { auth } = await ensureFirebaseInitialized();
-        // console.log("Firebase ensured in AuthProvider. Setting up onAuthStateChanged listener.");
         
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          // console.log("onAuthStateChanged triggered. Current user:", currentUser ? currentUser.uid : null);
           setUser(currentUser);
           setLoading(false);
           setInitialAuthDone(true);
         });
         return () => {
-          // console.log("Cleaning up onAuthStateChanged listener.");
           unsubscribe();
         }
 
@@ -81,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 : (t('authForm.authInitError') || "Could not initialize authentication. Please try again later."),
               variant: "destructive",
             });
-          }, 500); // Slight delay to avoid overwhelming if multiple components try to init
+          }, 500); 
         setUser(null);
         setLoading(false);
         setInitialAuthDone(true);
@@ -92,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         initializeAuth();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAuthDone]); // Run only once after initial mount or if initialAuthDone changes
+  }, [initialAuthDone, t]); 
 
   const login = async (data: AuthFormData) => {
     setLoading(true);
@@ -107,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const authError = error as AuthError;
       console.error("Login error:", authError.code, authError.message);
 
-      let errorMessage = authError.message; // Default to Firebase's message
+      let errorMessage = authError.message; 
       switch (authError.code) {
         case 'auth/invalid-credential':
           errorMessage = t('authForm.errorInvalidCredential') || 'Invalid email or password. Please try again.';
@@ -118,7 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'auth/invalid-email':
           errorMessage = t('authForm.errorInvalidEmail') || 'The email address is not valid. Please check and try again.';
           break;
-        // No default case needed, authError.message is already assigned
+        case 'auth/network-request-failed':
+          errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error. Please check your connection and try again.";
+          break;
       }
       toast({ title: t('authForm.loginFailedTitle'), description: errorMessage, variant: "destructive" });
       setLoading(false); 
@@ -131,7 +128,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { auth } = await getFirebaseInstances(); 
       if (!auth) throw new Error("Auth not initialized for register");
       await createUserWithEmailAndPassword(auth, data.email, data.password);
-      // onAuthStateChanged will handle user state.
       router.push('/login'); 
       toast({ 
         title: t('authForm.registerSuccessTitle'), 
@@ -151,6 +147,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'auth/invalid-email':
             errorMessage = t('authForm.errorInvalidEmail') || 'The email address is not valid. Please check and try again.';
             break;
+        case 'auth/network-request-failed':
+            errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error. Please check your connection and try again.";
+            break;
       }
       toast({ title: t('authForm.registerFailedTitle'), description: errorMessage, variant: "destructive" });
     } finally {
@@ -160,24 +159,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     setLoading(true);
+    if (!user) {
+      console.log("User already signed out or not signed in. Redirecting to login.");
+      router.push('/login');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { auth } = await getFirebaseInstances();
-      if (!auth) throw new Error("Auth not initialized for logout");
+      if (!auth) {
+        throw new Error(t('authForm.authInitErrorLogout') || "Authentication service is not available for logout. Please try again.");
+      }
       await signOut(auth);
-      // onAuthStateChanged will set user to null.
       router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
       console.error("Logout error:", authError.code, authError.message);
-      toast({ title: t('authForm.logoutFailedTitle'), description: authError.message, variant: "destructive" });
+      let errorMessage = authError.message;
+      if (authError.code === 'auth/network-request-failed') {
+        errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error during logout. Please check your connection and try again.";
+      } else if (authError.message.includes("permission") || authError.code === 'auth/permission-denied') {
+        errorMessage = t('authForm.errorLogoutPermission') || "Could not log out due to a permission issue. Please try again or contact support.";
+      } else if (authError.message.includes("Auth not initialized")) {
+        errorMessage = t('authForm.authInitErrorLogout');
+      }
+      
+      toast({ 
+        title: t('authForm.logoutFailedTitle'), 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     } finally {
         setLoading(false);
     }
   };
   
-  // This loading state is crucial for preventing hydration errors with redirects
-  if (loading || !initialAuthDone) {
+  if (loading && !initialAuthDone) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">

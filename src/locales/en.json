@@ -35,6 +35,7 @@
     "registerLink": "Register",
     "authErrorTitle": "Authentication Error",
     "authInitError": "Could not initialize authentication. Please try again later.",
+    "authInitErrorLogout": "Authentication service is not available for logout. Please ensure Firebase is correctly configured and try again.",
     "loginSuccessTitle": "Login Successful",
     "loginSuccessDescription": "Welcome back!",
     "loginFailedTitle": "Login Failed",
@@ -49,7 +50,9 @@
     "errorUserDisabled": "This account has been disabled. Please contact support.",
     "errorInvalidEmail": "The email address is not valid. Please check and try again.",
     "errorEmailInUse": "This email is already registered. Please login or use a different email.",
-    "errorWeakPassword": "The password is too weak. Please choose a stronger password."
+    "errorWeakPassword": "The password is too weak. Please choose a stronger password.",
+    "errorNetworkRequestFailed": "Network error. Please check your connection and try again.",
+    "errorLogoutPermission": "Could not log out due to a permission issue. Please try again or contact support."
   },
 
   "errorMessages": {

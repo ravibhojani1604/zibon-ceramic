@@ -6,6 +6,10 @@
   "headerTitle": "Zibon Ceramic",
   "addNewTile": "Add New Tile",
   "changeLanguage": "Change Language",
+  "toggleTheme": "Toggle theme",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
 
   "tileFormCardTitleAdd": "Add New Tile",
   "tileFormCardTitleEdit": "Edit Tile",

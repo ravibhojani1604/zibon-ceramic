@@ -6,6 +6,10 @@
   "headerTitle": "ઝિબોન સિરામિક",
   "addNewTile": "નવી ટાઇલ ઉમેરો",
   "changeLanguage": "ભાષા બદલો",
+  "toggleTheme": "થીમ બદલો",
+  "themeLight": "પ્રકાશ",
+  "themeDark": "ઘેરો",
+  "themeSystem": "સિસ્ટમ",
 
   "tileFormCardTitleAdd": "નવી ટાઇલ ઉમેરો",
   "tileFormCardTitleEdit": "ટાઇલ સંપાદિત કરો",

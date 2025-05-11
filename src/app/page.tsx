@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import ThemeSwitcher from '@/components/ThemeSwitcher'; // Import ThemeSwitcher
 
 export default function InventoryPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -164,7 +165,10 @@ export default function InventoryPage() {
               {t('headerTitle')}
             </h1>
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <ThemeSwitcher /> 
+          </div>
         </div>
       </header>
       

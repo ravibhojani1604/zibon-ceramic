@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      setLoading(true); 
+      // setLoading(true); // setLoading true is already the initial state
       try {
         const { auth } = await ensureFirebaseInitialized(); 
         
@@ -76,9 +76,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances(); 
+      if (!auth) throw new Error("Auth not initialized for login");
       await signInWithEmailAndPassword(auth, data.email, data.password);
       // onAuthStateChanged will update user state and loading state
-      // router.push('/inventory'); // Redirection handled by pages
+      router.push('/inventory'); 
       toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
@@ -92,6 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances(); 
+      if (!auth) throw new Error("Auth not initialized for register");
       await createUserWithEmailAndPassword(auth, data.email, data.password);
       // onAuthStateChanged will handle user state.
       router.push('/login'); 
@@ -112,9 +114,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances();
+      if (!auth) throw new Error("Auth not initialized for logout");
       await signOut(auth);
       // onAuthStateChanged will set user to null.
-      // router.push('/login'); // Redirection handled by pages
+      router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
       const authError = error as AuthError;
@@ -163,4 +166,3 @@ const showToastOnce = (id: string, toastFn: () => void, delay = 300) => {
   }, delay);
   toastTimeouts.set(id, timeout);
 };
-

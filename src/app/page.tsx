@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TileForm, { type TileFormData } from "@/components/TileForm";
 import TileList from "@/components/TileList";
-import type { Tile } from "@/types";
+import type { Tile, GroupedDisplayTile, TileVariant } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Edit3 } from "lucide-react";
@@ -18,7 +18,7 @@ import {
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase'; // Corrected import path
+import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -26,38 +26,91 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const TILES_COLLECTION = "globalTilesInventory";
 
-// Type constants
-const TYPE_L = "L";
-const TYPE_HL1 = "HL-1";
-const TYPE_HL2 = "HL-2";
-const TYPE_D = "D";
-const TYPE_F = "F";
-const TYPE_HL4 = "HL-4";
-const TYPE_HL5 = "HL-5";
-
-// This config is used by InventoryPage for saving logic, ensure labels match TileForm's typeConfig
 const typeConfigPage = [
-  { key: "L" as const, name: "type_L" as const, label: TYPE_L, quantityName: "quantity_L" as const },
-  { key: "HL1" as const, name: "type_HL1" as const, label: TYPE_HL1, quantityName: "quantity_HL1" as const },
-  { key: "HL2" as const, name: "type_HL2" as const, label: TYPE_HL2, quantityName: "quantity_HL2" as const },
-  { key: "HL4" as const, name: "type_HL4" as const, label: TYPE_HL4, quantityName: "quantity_HL4" as const },
-  { key: "HL5" as const, name: "type_HL5" as const, label: TYPE_HL5, quantityName: "quantity_HL5" as const },
-  { key: "D" as const, name: "type_D" as const, label: TYPE_D, quantityName: "quantity_D" as const },
-  { key: "F" as const, name: "type_F" as const, label: TYPE_F, quantityName: "quantity_F" as const },
+  { key: "L" as const, name: "type_L" as const, label: "L", quantityName: "quantity_L" as const },
+  { key: "HL1" as const, name: "type_HL1" as const, label: "HL-1", quantityName: "quantity_HL1" as const },
+  { key: "HL2" as const, name: "type_HL2" as const, label: "HL-2", quantityName: "quantity_HL2" as const },
+  { key: "HL4" as const, name: "type_HL4" as const, label: "HL-4", quantityName: "quantity_HL4" as const },
+  { key: "HL5" as const, name: "type_HL5" as const, label: "HL-5", quantityName: "quantity_HL5" as const },
+  { key: "D" as const, name: "type_D" as const, label: "D", quantityName: "quantity_D" as const },
+  { key: "F" as const, name: "type_F" as const, label: "F", quantityName: "quantity_F" as const },
 ] as const;
 
 
 export default function InventoryPage() {
-  const [tiles, setTiles] = useState<Tile[]>([]);
-  const [editingTile, setEditingTile] = useState<Tile | null>(null);
+  const [rawTiles, setRawTiles] = useState<Tile[]>([]); // Stores the flat list from Firestore
+  const [groupedTiles, setGroupedTiles] = useState<GroupedDisplayTile[]>([]);
+  const [editingTile, setEditingTile] = useState<Tile | null>(null); // This will be an individual Tile object
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { t, locale } = useTranslation();
 
+  const groupTiles = useCallback((firestoreTiles: Tile[]): GroupedDisplayTile[] => {
+    const groups = new Map<string, GroupedDisplayTile>();
+    const knownTypesSorted = typeConfigPage.map(tc => tc.label).sort((a, b) => b.length - a.length);
+
+    firestoreTiles.forEach(tile => {
+      let modelNumberPrefix = tile.modelNumber;
+      let typeSuffix = "";
+
+      for (const type of knownTypesSorted) {
+        if (tile.modelNumber.endsWith(`-${type}`)) {
+          modelNumberPrefix = tile.modelNumber.substring(0, tile.modelNumber.length - (type.length + 1));
+          typeSuffix = type;
+          break;
+        } else if (tile.modelNumber === type) {
+          modelNumberPrefix = ""; 
+          typeSuffix = type;
+          break;
+        }
+      }
+      
+      // If after attempting to parse, modelNumberPrefix is still the full modelNumber,
+      // and it's not "N/A", and no typeSuffix was found, it means it's a base model without a type suffix.
+      if (modelNumberPrefix === tile.modelNumber && tile.modelNumber !== "N/A" && typeSuffix === "") {
+         // typeSuffix remains ""
+      } else if (modelNumberPrefix === "N/A" && typeSuffix === "") {
+        // modelNumberPrefix is "N/A", typeSuffix is ""
+      }
+
+
+      const groupKey = `${modelNumberPrefix || "N/A"}_${tile.width}x${tile.height}`;
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          groupKey,
+          modelNumberPrefix: modelNumberPrefix || "N/A",
+          width: tile.width,
+          height: tile.height,
+          variants: [],
+          groupCreatedAt: tile.createdAt,
+        });
+      }
+
+      const group = groups.get(groupKey)!;
+      group.variants.push({
+        id: tile.id,
+        typeSuffix: typeSuffix || (modelNumberPrefix === tile.modelNumber && modelNumberPrefix !== "N/A" ? t('noTypeSuffix') : "N/A"),
+        quantity: tile.quantity,
+        createdAt: tile.createdAt,
+      });
+      
+      group.variants.sort((a, b) => {
+        const typeOrder = knownTypesSorted.concat(["N/A", t('noTypeSuffix')]);
+        return typeOrder.indexOf(a.typeSuffix) - typeOrder.indexOf(b.typeSuffix);
+      });
+
+      if (tile.createdAt && (!group.groupCreatedAt || tile.createdAt < group.groupCreatedAt)) {
+          group.groupCreatedAt = tile.createdAt;
+      }
+    });
+    
+    return Array.from(groups.values()).sort((a,b) => (b.groupCreatedAt?.getTime() || 0) - (a.groupCreatedAt?.getTime() || 0));
+  }, [t]);
+
   useEffect(() => {
     let unsubscribe = () => {};
-
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
@@ -69,7 +122,6 @@ export default function InventoryPage() {
         }
 
         const tilesQuery = query(collection(db, TILES_COLLECTION), orderBy("createdAt", "desc"));
-
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
           const fetchedTiles: Tile[] = [];
           querySnapshot.forEach((docSnapshot) => {
@@ -83,7 +135,8 @@ export default function InventoryPage() {
               createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
             });
           });
-          setTiles(fetchedTiles);
+          setRawTiles(fetchedTiles);
+          setGroupedTiles(groupTiles(fetchedTiles));
           setIsLoading(false);
         }, (error: any) => {
           console.error("Error fetching tiles:", error);
@@ -98,9 +151,8 @@ export default function InventoryPage() {
     };
 
     setupFirestoreListener();
-
     return () => unsubscribe();
-  }, [toast, t]);
+  }, [toast, t, groupTiles]);
 
 
   useEffect(() => {
@@ -112,7 +164,7 @@ export default function InventoryPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveTile = useCallback(async (data: TileFormData, id?: string) => {
+  const handleSaveTile = useCallback(async (data: TileFormData, tileIdToEdit?: string) => {
     const { db } = await getFirebaseInstances();
     if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
@@ -123,31 +175,34 @@ export default function InventoryPage() {
       width: data.width,
       height: data.height,
     };
-
-    const prefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix) : "";
+    
+    const modelNumberPrefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix).trim() : "";
 
     try {
-      if (id) { // Editing existing tile
-        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]);
-        let modelNumber = prefixStr;
-        if (activeTypeConfig) {
-            modelNumber = prefixStr ? `${prefixStr}-${activeTypeConfig.label}` : activeTypeConfig.label;
-        } else if (!prefixStr) {
-            modelNumber = "N/A";
+      if (tileIdToEdit) { // Editing existing tile (variant)
+        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]); // In edit, only one should be true
+        let finalModelNumber = modelNumberPrefixStr;
+
+        if (activeTypeConfig && modelNumberPrefixStr) {
+          finalModelNumber = `${modelNumberPrefixStr}-${activeTypeConfig.label}`;
+        } else if (activeTypeConfig) { // Only type, no prefix
+          finalModelNumber = activeTypeConfig.label;
+        } else if (!modelNumberPrefixStr) { // No prefix and no type (should be caught by validation)
+          finalModelNumber = "N/A";
         }
+        // If finalModelNumber is still empty, it means prefix was empty and no type was selected
+        if (finalModelNumber === "") finalModelNumber = "N/A";
 
-        if (modelNumber === "") modelNumber = "N/A";
 
-        const tileDocRef = doc(db, TILES_COLLECTION, id);
+        const tileDocRef = doc(db, TILES_COLLECTION, tileIdToEdit);
         await updateDoc(tileDocRef, {
           ...tileBaseProperties,
-          modelNumber,
-          quantity: data.quantity // Global quantity for editing
+          modelNumber: finalModelNumber,
+          quantity: data.quantity // Global quantity is used for the specific variant being edited
         });
         toast({
           title: t('toastTileUpdatedTitle'),
-          description: t('toastTileUpdatedDescription', { modelNumber }),
-          variant: "default",
+          description: t('toastTileUpdatedDescription', { modelNumber: finalModelNumber }),
         });
 
       } else { // Adding new tile(s)
@@ -156,7 +211,7 @@ export default function InventoryPage() {
 
         if (checkedTypes.length > 0) {
             for (const sf of checkedTypes) {
-                const model = prefixStr ? `${prefixStr}-${sf.label}` : sf.label;
+                const model = modelNumberPrefixStr ? `${modelNumberPrefixStr}-${sf.label}` : sf.label;
                 const currentQuantity = data[sf.quantityName] ?? 0;
 
                 if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
@@ -168,17 +223,17 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (prefixStr) {
-            const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateMap.has(prefixStr)){
-                modelsToCreateMap.set(prefixStr, {
+        } else if (modelNumberPrefixStr) { // Only prefix is provided, no types selected
+            const quantity = data.quantity ?? 0; // Use global quantity
+             if (quantity > 0 && !modelsToCreateMap.has(modelNumberPrefixStr)){
+                modelsToCreateMap.set(modelNumberPrefixStr, {
                      ...tileBaseProperties,
-                    modelNumber: prefixStr,
+                    modelNumber: modelNumberPrefixStr,
                     quantity: quantity,
                     createdAt: serverTimestamp(),
                 });
             }
-        } else {
+        } else { // Neither prefix nor type selected, use global quantity for "N/A" model
              const quantity = data.quantity ?? 0;
              if (quantity > 0 && !modelsToCreateMap.has("N/A")) {
                  modelsToCreateMap.set("N/A", {
@@ -194,7 +249,7 @@ export default function InventoryPage() {
         const tileDataObjects = Array.from(modelsToCreateMap.values());
 
         if (tileDataObjects.length === 0 ) {
-           toast({ title: "Save Error", description: "No valid model number or quantity to save.", variant: "destructive" });
+           toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
            setIsFormOpen(false);
            return;
         }
@@ -209,56 +264,62 @@ export default function InventoryPage() {
         toast({
           title: t('toastTileAddedTitle'),
           description: t('toastTilesAddedDescription', { count: modelsToCreate.length, modelNumbers: modelsToCreate.join(', ') }),
-          variant: "default",
         });
       }
       setIsFormOpen(false);
       setEditingTile(null);
     } catch (error) {
       console.error("Error saving tile(s):", error);
-      toast({ title: "Save Error", description: "Failed to save tile(s). Please try again.", variant: "destructive" });
+      toast({ title: t("saveErrorTitle"), description: t("saveErrorDescription"), variant: "destructive" });
     }
   }, [toast, t]);
 
-  const handleEditTile = useCallback((tile: Tile) => {
-    setEditingTile(tile);
-    setIsFormOpen(true);
-  }, []);
+  const handleEditTile = useCallback((variantId: string) => {
+    const tileToEdit = rawTiles.find(tile => tile.id === variantId);
+    if (tileToEdit) {
+      setEditingTile(tileToEdit);
+      setIsFormOpen(true);
+    } else {
+      toast({ title: t("editErrorTitle"), description: t("editErrorNotFound"), variant: "destructive"});
+    }
+  }, [rawTiles, toast, t]);
 
   const handleCancelEditOnForm = useCallback(() => {
     setEditingTile(null);
     setIsFormOpen(false);
   }, []);
 
-  const handleDeleteTile = useCallback(async (tileId: string) => {
+  const handleDeleteTile = useCallback(async (variantId: string) => {
     const { db } = await getFirebaseInstances();
     if (!db) {
       toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
       return;
     }
 
-    const tileToDelete = tiles.find(tile => tile.id === tileId);
-    if (!tileToDelete) return;
+    const tileToDelete = rawTiles.find(tile => tile.id === variantId);
+    if (!tileToDelete) {
+        toast({ title: t("deleteErrorTitle"), description: t("deleteErrorNotFound"), variant: "destructive"});
+        return;
+    }
 
     try {
-      const tileDocRef = doc(db, TILES_COLLECTION, tileId);
+      const tileDocRef = doc(db, TILES_COLLECTION, variantId);
       await deleteDoc(tileDocRef);
 
-      if (editingTile && editingTile.id === tileId) {
+      if (editingTile && editingTile.id === variantId) {
         setEditingTile(null);
         setIsFormOpen(false);
       }
-      const tileDisplayName = tileToDelete.modelNumber;
       toast({
         title: t('toastTileDeletedTitle'),
-        description: t('toastTileDeletedDescription', { modelNumber: tileDisplayName }),
-        variant: "destructive",
+        description: t('toastTileDeletedDescription', { modelNumber: tileToDelete.modelNumber }),
+        variant: "destructive", // Or default
       });
     } catch (error) {
       console.error("Error deleting tile:", error);
-      toast({ title: "Delete Error", description: "Failed to delete tile. Please try again.", variant: "destructive" });
+      toast({ title: t("deleteErrorTitle"), description: t("deleteErrorDescription"), variant: "destructive" });
     }
-  }, [toast, tiles, editingTile, t]);
+  }, [toast, rawTiles, editingTile, t]);
 
 
   const isEditingForm = !!editingTile;
@@ -312,7 +373,7 @@ export default function InventoryPage() {
           }}
         >
           <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col">
-            <DialogHeader className="px-0 pt-0 pb-4 sticky top-0 bg-background z-10"> {/* Sticky header with background */}
+            <DialogHeader className="px-0 pt-0 pb-4 sticky top-0 bg-card z-10 border-b">
               <DialogTitle className="text-xl flex items-center gap-2">
                 {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
                 {isEditingForm ? t('tileFormCardTitleEdit') : t('tileFormCardTitleAdd')}
@@ -321,7 +382,7 @@ export default function InventoryPage() {
                 {isEditingForm ? t('tileFormCardDescriptionEdit') : t('tileFormCardDescriptionAdd')}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto"> {/* This div will contain the scrollable form */}
+            <div className="flex-grow overflow-y-auto pr-2"> {/* Added pr-2 for scrollbar spacing */}
               <TileForm
                 onSaveTile={handleSaveTile}
                 editingTile={editingTile}
@@ -352,7 +413,7 @@ export default function InventoryPage() {
           </div>
         ) : (
           <TileList
-            tiles={tiles}
+            groupedTiles={groupedTiles}
             onEditTile={handleEditTile}
             onDeleteTile={handleDeleteTile}
           />
@@ -365,3 +426,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    

@@ -3,7 +3,7 @@
 
 import type { FC } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Tile } from "@/types";
+import type { GroupedDisplayTile, TileVariant } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,174 +18,156 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight } from "lucide-react"; 
-// Removed static imports for jsPDF, jspdf-autotable, and XLSX
-// import jsPDF from 'jspdf';
-// import 'jspdf-autotable'; // Or import autoTable from 'jspdf-autotable'
-// import * as XLSX from 'xlsx';
+import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/context/i18n';
+import { Badge } from '@/components/ui/badge';
 
 
 interface TileListProps {
-  tiles: Tile[];
-  onEditTile: (tile: Tile) => void;
-  onDeleteTile: (tileId: string) => void;
+  groupedTiles: GroupedDisplayTile[];
+  onEditTile: (variantId: string) => void;
+  onDeleteTile: (variantId: string) => void;
 }
 
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
-const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
+const TileList: FC<TileListProps> = ({ groupedTiles, onEditTile, onDeleteTile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [tileToDelete, setTileToDelete] = useState<Tile | null>(null);
+  const [variantToDelete, setVariantToDelete] = useState<TileVariant & { groupModelNumberPrefix: string } | null>(null);
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
   const { t } = useTranslation();
 
+  const totalGroupedQuantity = useMemo(() => {
+    return groupedTiles.reduce((sum, group) => 
+      sum + group.variants.reduce((variantSum, variant) => variantSum + variant.quantity, 0)
+    , 0);
+  }, [groupedTiles]);
 
-  const totalQuantity = useMemo(() => {
-    return tiles.reduce((sum, tile) => sum + tile.quantity, 0);
-  }, [tiles]);
-
-  const filteredTiles = useMemo(() => {
+  const filteredGroupedTiles = useMemo(() => {
     if (!searchTerm.trim()) {
-      return tiles;
+      return groupedTiles;
     }
-
-    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-
-    return tiles.filter(tile => {
-      return searchTerms.every(term => {
-        const sizeMatch = term.match(/^(\d*\.?\d*)x(\d*\.?\d*)$/i);
-        if (sizeMatch) {
-          const searchWidth = parseFloat(sizeMatch[1]);
-          const searchHeight = parseFloat(sizeMatch[2]);
-          let widthMatches = true;
-          let heightMatches = true;
-
-          if (!Number.isNaN(searchWidth) && sizeMatch[1] !== '') {
-            widthMatches = tile.width === searchWidth;
-          }
-          if (!Number.isNaN(searchHeight) && sizeMatch[2] !== '') {
-            heightMatches = tile.height === searchHeight;
-          }
-          return widthMatches && heightMatches;
+    const searchLower = searchTerm.toLowerCase();
+    return groupedTiles.filter(group => {
+      const modelMatch = group.modelNumberPrefix.toLowerCase().includes(searchLower);
+      const dimensionMatch = `${group.width}x${group.height}`.includes(searchLower) || 
+                             `${group.width} x ${group.height}`.includes(searchLower);
+      const typeMatch = group.variants.some(variant => variant.typeSuffix.toLowerCase().includes(searchLower));
+      
+      // Advanced search for "model-type" or "model type"
+      const parts = searchLower.split(/[\s-]+/).filter(p => p);
+      let advancedMatch = false;
+      if (parts.length > 1) {
+        const potentialModelPrefix = parts.slice(0, -1).join(""); // Allows for spaces in model prefix search
+        const potentialTypeSuffix = parts[parts.length - 1];
+        if (group.modelNumberPrefix.toLowerCase().includes(potentialModelPrefix)) {
+            advancedMatch = group.variants.some(v => v.typeSuffix.toLowerCase().includes(potentialTypeSuffix));
         }
+      }
 
-        return (
-          (tile.modelNumber?.toLowerCase() || '').includes(term)
-        );
-      });
+
+      return modelMatch || dimensionMatch || typeMatch || advancedMatch;
     });
-  }, [tiles, searchTerm]);
+  }, [groupedTiles, searchTerm]);
 
-  const paginatedTiles = useMemo(() => {
+  const paginatedGroupedTiles = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredTiles.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredTiles, currentPage, itemsPerPage]);
+    return filteredGroupedTiles.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredGroupedTiles, currentPage, itemsPerPage]);
 
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(filteredTiles.length / itemsPerPage));
-  }, [filteredTiles, itemsPerPage]);
+    return Math.max(1, Math.ceil(filteredGroupedTiles.length / itemsPerPage));
+  }, [filteredGroupedTiles, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1); 
   }, [searchTerm, itemsPerPage]);
 
 
-  const handleDeleteClick = (tile: Tile) => {
-    setTileToDelete(tile);
+  const handleDeleteClick = (variant: TileVariant, groupModelNumberPrefix: string) => {
+    setVariantToDelete({ ...variant, groupModelNumberPrefix });
     setShowDeleteDialog(true);
   };
 
   const confirmDelete = () => {
-    if (tileToDelete) {
-      onDeleteTile(tileToDelete.id);
+    if (variantToDelete) {
+      onDeleteTile(variantToDelete.id);
     }
     setShowDeleteDialog(false);
-    setTileToDelete(null);
+    setVariantToDelete(null);
+  };
+  
+  const getExportableData = () => {
+    const dataToExport: any[] = [];
+    filteredGroupedTiles.forEach(group => {
+      group.variants.forEach(variant => {
+        dataToExport.push({
+          'Model Number Prefix': group.modelNumberPrefix,
+          'Type': variant.typeSuffix === t('noTypeSuffix') || variant.typeSuffix === "N/A" ? '-' : variant.typeSuffix,
+          'Full Model Number': variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" ? `${group.modelNumberPrefix}-${variant.typeSuffix}` : group.modelNumberPrefix,
+          'Width (in)': group.width,
+          'Height (in)': group.height,
+          'Quantity': variant.quantity,
+        });
+      });
+    });
+    return dataToExport;
   };
 
+
   const handleExportPDF = async () => {
-    if (filteredTiles.length === 0) {
-      toast({
-        title: t("exportNoTiles"),
-        description: t("exportNoTilesDescription"),
-        variant: "destructive",
-      });
+    const exportData = getExportableData();
+    if (exportData.length === 0) {
+      toast({ title: t("exportNoTiles"), description: t("exportNoTilesDescription"), variant: "destructive" });
       return;
     }
-
     try {
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
       
       const doc = new jsPDF();
-      autoTable(doc, { // Use autoTable as a function
-        head: [['Model Number', 'Width (in)', 'Height (in)', 'Quantity']], 
-        body: filteredTiles.map(tile => [ 
-          tile.modelNumber || 'N/A',
-          tile.width,
-          tile.height,
-          tile.quantity,
+      autoTable(doc, {
+        head: [['Model Prefix', 'Type', 'Full Model', 'Width (in)', 'Height (in)', 'Quantity']], 
+        body: exportData.map(item => [ 
+          item['Model Number Prefix'], item['Type'], item['Full Model Number'], item['Width (in)'], item['Height (in)'], item['Quantity']
         ]),
         startY: 20,
         didDrawPage: (data: any) => {
           doc.setFontSize(18);
-          doc.text("Zibon Ceramic - Tile Inventory", data.settings.margin.left, 15);
+          doc.text(t('pdfExportTitle'), data.settings.margin.left, 15);
         }
       });
       doc.save('zibon_ceramic_tile_inventory.pdf');
-      toast({
-        title: t("exportSuccessPDF"),
-        description: t("tileListCardTitle"), 
-      });
+      toast({ title: t("exportSuccessPDF"), description: t("tileListCardTitle") });
     } catch (error) {
       console.error("Failed to load PDF export libraries or export PDF:", error);
-      toast({
-        title: "Export Error",
-        description: "Could not export to PDF. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: t("exportErrorTitle"), description: t("exportErrorPdfDescription"), variant: "destructive" });
     }
   };
 
   const handleExportExcel = async () => {
-    if (filteredTiles.length === 0) {
-      toast({
-        title: t("exportNoTiles"),
-        description: t("exportNoTilesDescription"),
-        variant: "destructive",
-      });
+    const exportData = getExportableData();
+     if (exportData.length === 0) {
+      toast({ title: t("exportNoTiles"), description: t("exportNoTilesDescription"), variant: "destructive" });
       return;
     }
     try {
       const XLSX = await import('xlsx');
-      const dataToExport = filteredTiles.map(tile => ({ 
-        'Model Number': tile.modelNumber || 'N/A',
-        'Width (in)': tile.width,
-        'Height (in)': tile.height,
-        'Quantity': tile.quantity,
-      }));
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Tiles');
       XLSX.writeFile(wb, 'zibon_ceramic_tile_inventory.xlsx');
-      toast({
-        title: t("exportSuccessExcel"),
-        description: t("tileListCardTitle"),
-      });
+      toast({ title: t("exportSuccessExcel"), description: t("tileListCardTitle") });
     } catch (error) {
       console.error("Failed to load Excel export library or export Excel:", error);
-      toast({
-        title: "Export Error",
-        description: "Could not export to Excel. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: t("exportErrorTitle"), description: t("exportErrorExcelDescription"), variant: "destructive" });
     }
   };
+
 
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(parseInt(value, 10));
@@ -211,7 +193,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
               {t('tileListCardTitle')}
             </CardTitle>
             <div className="text-lg font-semibold text-right sm:text-left w-full sm:w-auto">
-              {t('totalTilesLabel', { count: totalQuantity.toString() })}
+              {t('totalTilesLabel', { count: totalGroupedQuantity.toString() })}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -236,56 +218,57 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
           </div>
         </CardHeader>
         <CardContent>
-          {tiles.length === 0 ? (
+          {groupedTiles.length === 0 && !searchTerm ? (
             <div className="text-center text-muted-foreground py-10">
               <Layers size={48} className="mx-auto mb-2" />
               <p>{t('noTilesAdded')}</p>
             </div>
-          ) : filteredTiles.length === 0 && searchTerm ? (
+          ) : filteredGroupedTiles.length === 0 && searchTerm ? (
             <div className="text-center text-muted-foreground py-10">
               <SearchX size={48} className="mx-auto mb-2" />
               <p>{t('noTilesFoundSearch')}</p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-6 justify-center sm:justify-start">
-              {paginatedTiles.map((tile) => (
-                <Card key={tile.id} className="w-full max-w-xs sm:w-72 shadow-md hover:shadow-lg transition-shadow duration-200 animate-in fade-in-0 duration-300 ease-out">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Square className="text-primary" size={20} aria-label="Tile icon"/>
-                        {tile.modelNumber || 'N/A'}
-                      </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginatedGroupedTiles.map((group) => (
+                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Box className="text-primary" size={24} aria-label="Box icon"/>
+                      {group.modelNumberPrefix}
                     </CardTitle>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Ruler size={14} /> {t('tileCardDimensionsLabel', { width: group.width.toString(), height: group.height.toString() })}
+                    </p>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-2 text-sm pt-2">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Tag size={16} />
-                      <span>{t('tileCardModelLabel', { modelNumber: tile.modelNumber || 'N/A' })}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Ruler size={16} />
-                      <span>{t('tileCardDimensionsLabel', { width: tile.width.toString(), height: tile.height.toString() })}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Package size={16} />
-                      <span>{t('tileCardQuantityLabel', { count: tile.quantity.toString() })}</span>
-                    </div>
-                     <div className="flex justify-end space-x-2 mt-2">
-                      <Button variant="outline" size="sm" onClick={() => onEditTile(tile)}>
-                        <Edit3 className="mr-1 h-4 w-4" /> {t('editButton')}
-                      </Button>
-                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteClick(tile)}>
-                        <Trash2 className="mr-1 h-4 w-4" /> {t('deleteButton')}
-                      </Button>
-                    </div>
+                  <CardContent className="flex-grow pt-0 pb-3 px-4 space-y-3">
+                    {group.variants.map((variant) => (
+                      <div key={variant.id} className="p-3 rounded-md border bg-secondary/30 hover:bg-secondary/60 transition-colors">
+                        <div className="flex justify-between items-center mb-1">
+                           <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
+                             {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
+                           </Badge>
+                           <span className="text-sm font-medium flex items-center gap-1">
+                             <Package size={14} />{t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
+                           </span>
+                        </div>
+                        <div className="flex justify-end space-x-2 mt-2">
+                          <Button variant="outline" size="sm" onClick={() => onEditTile(variant.id)}>
+                            <Edit3 className="mr-1 h-3 w-3" /> {t('editButton')}
+                          </Button>
+                          <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteClick(variant, group.modelNumberPrefix)}>
+                            <Trash2 className="mr-1 h-3 w-3" /> {t('deleteButton')}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
         </CardContent>
-        {filteredTiles.length > 0 && (
+        {filteredGroupedTiles.length > 0 && (
           <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t">
             <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2 sm:mb-0">
               <span>{t('rowsPerPage')}</span>
@@ -313,7 +296,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                   aria-label={t('previousPage')}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  {t('previousPage')}
+                  <span className="hidden sm:inline">{t('previousPage')}</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -322,7 +305,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                   disabled={currentPage === totalPages}
                   aria-label={t('nextPage')}
                 >
-                  {t('nextPage')}
+                  <span className="hidden sm:inline">{t('nextPage')}</span>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -336,11 +319,14 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteDialogTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('deleteDialogDescription', { modelNumber: tileToDelete?.modelNumber || 'N/A' })}
+              {variantToDelete && t('deleteDialogDescriptionVariant', { 
+                type: variantToDelete.typeSuffix === "N/A" || variantToDelete.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variantToDelete.typeSuffix, 
+                modelNumber: variantToDelete.groupModelNumberPrefix 
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setTileToDelete(null)}>{t('deleteDialogCancel')}</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setVariantToDelete(null)}>{t('deleteDialogCancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
               {t('deleteDialogConfirm')}
             </AlertDialogAction>
@@ -352,3 +338,5 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
 };
 
 export default TileList;
+
+    

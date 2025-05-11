@@ -216,9 +216,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   if (loading && !initialAuthDone) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
-          <Skeleton className="h-16 w-16 text-primary mx-auto animate-spin" data-ai-hint="ceramic tile"/>
+          <svg
+            className="h-16 w-16 text-primary mx-auto animate-spin" 
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            data-ai-hint="ceramic tile"
+          >
+            <path d="M3 3h7v7H3z" />
+            <path d="M14 3h7v7h-7z" />
+            <path d="M3 14h7v7H3z" />
+            <path d="M14 14h7v7h-7z" />
+          </svg>
           <Skeleton className="h-8 w-3/4 mx-auto" />
           <Skeleton className="h-6 w-1/2 mx-auto" />
         </div>

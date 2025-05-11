@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { I18nProvider } from '@/context/i18n';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { AuthProvider } from '@/context/AuthContext'; // Import AuthProvider
 
 const geistSans = Geist({ 
   variable: '--font-geist-sans',
@@ -36,8 +37,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <I18nProvider>
+            <AuthProvider> {/* Wrap with AuthProvider */}
               {children}
               <Toaster />
+            </AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

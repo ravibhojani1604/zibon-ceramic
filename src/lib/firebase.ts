@@ -4,56 +4,78 @@ import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { initializeFirestore, type Firestore } from 'firebase/firestore';
 
+// This is the hardcoded Firebase configuration.
 const firebaseConfig = {
-  apiKey: "AIzaSyCh0pbSxgcoKN4cMxlWN58JL5c-PwgHjP4",
-  authDomain: "zibon-ceramic.firebaseapp.com",
-  projectId: "zibon-ceramic",
-  storageBucket: "zibon-ceramic.appspot.com",
-  messagingSenderId: "758308365599",
-  appId: "1:758308365599:web:ea5eee0961d260002a3c2a",
-  measurementId: "G-5SG9ZV3YRY"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCh0pbSxgcoKN4cMxlWN58JL5c-PwgHjP4",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "zibon-ceramic.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "zibon-ceramic",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "zibon-ceramic.appspot.com",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "758308365599",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:758308365599:web:ea5eee0961d260002a3c2a",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-5SG9ZV3YRY",
 };
 
 let appInstance: FirebaseApp | undefined;
 let authInstance: Auth | undefined;
 let dbInstance: Firestore | undefined;
+let initializationPromise: Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> | null = null;
 
-const initializationPromise: Promise<{ app: FirebaseApp | undefined, auth: Auth | undefined, db: Firestore | undefined }> = (async () => {
-  if (typeof window === 'undefined') {
-    return { app: undefined, auth: undefined, db: undefined };
+const initializeFirebase = (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
+  if (initializationPromise) {
+    return initializationPromise;
   }
 
-  try {
-    let app: FirebaseApp;
-    console.log("Attempting to initialize Firebase...");
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-      console.log("Firebase initialized successfully.");
-    } else {
-      app = getApp();
-      console.log("Firebase app already initialized.");
+  initializationPromise = new Promise(async (resolve, reject) => {
+    if (typeof window === 'undefined') {
+      // Should not happen in client components, but as a safeguard
+      console.warn("Firebase initialization attempted on the server. This should be client-side.");
+      // @ts-ignore
+      return reject(new Error("Firebase can only be initialized on the client."));
     }
 
-    console.log("Getting Auth instance...");
-    const auth = getAuth(app);
-    console.log("Auth instance obtained.");
+    try {
+      if (!getApps().length) {
+        appInstance = initializeApp(firebaseConfig);
+        console.log("Firebase initialized successfully.");
+      } else {
+        appInstance = getApp();
+        console.log("Firebase app already initialized.");
+      }
 
-    console.log("Getting Firestore instance...");
-    const db = initializeFirestore(app, {
-      experimentalForceLongPolling: true
-    });
-    console.log("Firestore instance obtained.");
+      authInstance = getAuth(appInstance);
+      console.log("Auth instance obtained.");
+      
+      dbInstance = initializeFirestore(appInstance, {
+        experimentalForceLongPolling: true,
+        // Adding other settings as needed, for example:
+        // useFetchStreams: false, // if you encounter issues with streams in some environments
+      });
+      console.log("Firestore instance obtained.");
 
-    return { app, auth, db };
-
-  } catch (error: any) {
-    console.error("Firebase initialization error:");
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
-    return { app: undefined, auth: undefined, db: undefined };
-  }
-})();
-
-export const getFirebaseInstances = (): Promise<{ app: FirebaseApp | undefined, auth: Auth | undefined, db: Firestore | undefined }> => {
+      resolve({ app: appInstance, auth: authInstance, db: dbInstance });
+    } catch (error: any) {
+      console.error("Firebase initialization error:", error);
+      // Ensure instances are undefined on error
+      appInstance = undefined;
+      authInstance = undefined;
+      dbInstance = undefined;
+      initializationPromise = null; // Reset promise so it can be retried if necessary
+      reject(error);
+    }
+  });
   return initializationPromise;
+};
+
+
+export const getFirebaseInstances = async (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
+  if (!appInstance || !authInstance || !dbInstance) {
+    return initializeFirebase();
+  }
+  return { app: appInstance, auth: authInstance, db: dbInstance };
+};
+
+// Optional: A helper to ensure Firebase is initialized before specific operations
+// This can be useful if some parts of your app might try to use Firebase before AuthProvider has fully run.
+export const ensureFirebaseInitialized = async (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
+    return getFirebaseInstances();
 };

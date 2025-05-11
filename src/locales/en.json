@@ -10,6 +10,30 @@
   "themeLight": "Light",
   "themeDark": "Dark",
   "themeSystem": "System",
+  "logoutButton": "Logout",
+
+  "authForm": {
+    "loginTitle": "Welcome Back!",
+    "loginDescription": "Sign in to access your Zibon Ceramic inventory.",
+    "registerTitle": "Create Account",
+    "registerDescription": "Sign up to start managing your Zibon Ceramic inventory.",
+    "emailLabel": "Email Address",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "confirmPasswordLabel": "Confirm Password",
+    "loginButton": "Login",
+    "registerButton": "Register",
+    "loadingButton": "Loading...",
+    "loadingPage": "Loading Zibon Ceramic...",
+    "emailInvalidError": "Please enter a valid email address.",
+    "passwordMinLengthError": "Password must be at least 6 characters.",
+    "confirmPasswordMinLengthError": "Confirm password must be at least 6 characters.",
+    "passwordsDoNotMatchError": "Passwords do not match.",
+    "alreadyHaveAccount": "Already have an account?",
+    "loginLink": "Login",
+    "dontHaveAccount": "Don't have an account?",
+    "registerLink": "Register"
+  },
 
   "errorMessages": {
     "fetchErrorTitle": "Fetch Error",
@@ -120,6 +144,4 @@
   "toastGroupDeletedTitle": "Tile Group Deleted",
   "toastGroupDeletedDescription": "The tile group with prefix \"{{modelNumberPrefix}}\" and all its variants have been deleted."
 }
-    
-
     

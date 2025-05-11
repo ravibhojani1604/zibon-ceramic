@@ -10,6 +10,30 @@
   "themeLight": "પ્રકાશ",
   "themeDark": "ઘેરો",
   "themeSystem": "સિસ્ટમ",
+  "logoutButton": "લૉગઆઉટ",
+
+  "authForm": {
+    "loginTitle": "ફરી સ્વાગત છે!",
+    "loginDescription": "તમારી ઝિબોન સિરામિક ઇન્વેન્ટરી ઍક્સેસ કરવા માટે સાઇન ઇન કરો.",
+    "registerTitle": "એકાઉન્ટ બનાવો",
+    "registerDescription": "તમારી ઝિબોન સિરામિક ઇન્વેન્ટરીનું સંચાલન શરૂ કરવા માટે સાઇન અપ કરો.",
+    "emailLabel": "ઇમેઇલ સરનામું",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "પાસવર્ડ",
+    "confirmPasswordLabel": "પાસવર્ડની પુષ્ટિ કરો",
+    "loginButton": "લૉગિન કરો",
+    "registerButton": "રજીસ્ટર કરો",
+    "loadingButton": "લોડ કરી રહ્યું છે...",
+    "loadingPage": "ઝિબોન સિરામિક લોડ કરી રહ્યું છે...",
+    "emailInvalidError": "કૃપા કરીને માન્ય ઇમેઇલ સરનામું દાખલ કરો.",
+    "passwordMinLengthError": "પાસવર્ડ ઓછામાં ઓછો 6 અક્ષરોનો હોવો જોઈએ.",
+    "confirmPasswordMinLengthError": "પાસવર્ડની પુષ્ટિ ઓછામાં ઓછી 6 અક્ષરોની હોવી જોઈએ.",
+    "passwordsDoNotMatchError": "પાસવર્ડ મેળ ખાતા નથી.",
+    "alreadyHaveAccount": "પહેલેથી એકાઉન્ટ છે?",
+    "loginLink": "લૉગિન કરો",
+    "dontHaveAccount": "એકાઉન્ટ નથી?",
+    "registerLink": "રજીસ્ટર કરો"
+  },
 
   "errorMessages": {
     "fetchErrorTitle": "ડેટા લાવવામાં ભૂલ",
@@ -120,7 +144,4 @@
   "toastGroupDeletedTitle": "ટાઇલ ગ્રુપ કાઢી નાખવામાં આવ્યું",
   "toastGroupDeletedDescription": "પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળું ટાઇલ ગ્રુપ અને તેના બધા વેરિઅન્ટ કાઢી નાખવામાં આવ્યા છે."
 }
-
-    
-
     

@@ -25,6 +25,7 @@
     "registerButton": "રજીસ્ટર કરો",
     "loadingButton": "લોડ કરી રહ્યું છે...",
     "loadingPage": "ઝિબોન સિરામિક લોડ કરી રહ્યું છે...",
+    "loadingRedirect": "રીડાયરેક્ટ કરી રહ્યું છે...",
     "emailInvalidError": "કૃપા કરીને માન્ય ઇમેઇલ સરનામું દાખલ કરો.",
     "passwordMinLengthError": "પાસવર્ડ ઓછામાં ઓછો 6 અક્ષરોનો હોવો જોઈએ.",
     "confirmPasswordMinLengthError": "પાસવર્ડની પુષ્ટિ ઓછામાં ઓછી 6 અક્ષરોની હોવી જોઈએ.",

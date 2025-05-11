@@ -25,6 +25,7 @@
     "registerButton": "Register",
     "loadingButton": "Loading...",
     "loadingPage": "Loading Zibon Ceramic...",
+    "loadingRedirect": "Redirecting...",
     "emailInvalidError": "Please enter a valid email address.",
     "passwordMinLengthError": "Password must be at least 6 characters.",
     "confirmPasswordMinLengthError": "Confirm password must be at least 6 characters.",

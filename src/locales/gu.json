@@ -1,3 +1,4 @@
+
 {
   "appTitle": "ઝિબોન સિરામિક",
   "appDescription": "ઝિબોન સિરામિક વડે તમારી ટાઇલ ઇન્વેન્ટરીને ટ્રૅક કરો.",
@@ -25,9 +26,9 @@
   "modelNumberRequiredError": "મોડેલ નંબરનો ભાગ (પ્રીફિક્સ અથવા સફિક્સ ચેકબોક્સ) આવશ્યક છે.",
   "modelNumberPrefixInvalidError": "મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "જો દાખલ કરવામાં આવે તો મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
-  "modelNumberPrefixRequiredWithHL": "જો HL-1 અથવા HL-2 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
+  "modelNumberPrefixRequiredWithHL": "જો HL-1, HL-2, HL-4 અથવા HL-5 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
   "suffixCheckboxesLabel": "પ્રત્યયો",
-  "suffixCheckboxesDescription": "પ્રત્યય(પ્રત્યયો) પસંદ કરો. જો ઉમેરી રહ્યા હો, તો બહુવિધ પસંદગીઓ બહુવિધ ટાઇલ્સ બનાવશે. જો સંપાદિત કરી રહ્યા હો, તો ફક્ત એક પ્રત્યય લાગુ પડે છે.",
+  "suffixCheckboxesDescription": "જો ઉમેરી રહ્યા હો, તો બહુવિધ પસંદગીઓ બહુવિધ ટાઇલ્સ બનાવશે. જો સંપાદિત કરી રહ્યા હો, તો ફક્ત એક પ્રત્યય લાગુ પડે છે.",
   "widthLabel": "પહોળાઈ (ઇંચ)",
   "widthPlaceholder": "દા.ત., ૨૪",
   "widthPositiveError": "પહોળાઈ હકારાત્મક નંબર હોવી આવશ્યક છે.",

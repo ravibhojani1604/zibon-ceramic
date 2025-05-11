@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,11 +15,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader } from "@/components/ui/card"; // Added import
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase'; // Corrected path
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -30,6 +31,8 @@ const SUFFIX_HL1 = "HL-1";
 const SUFFIX_HL2 = "HL-2";
 const SUFFIX_D = "D";
 const SUFFIX_F = "F";
+const SUFFIX_HL4 = "HL-4";
+const SUFFIX_HL5 = "HL-5";
 
 
 export default function InventoryPage() {
@@ -119,6 +122,8 @@ export default function InventoryPage() {
 
         if (data.suffix_HL1) chosenSuffix = SUFFIX_HL1;
         else if (data.suffix_HL2) chosenSuffix = SUFFIX_HL2;
+        else if (data.suffix_HL4) chosenSuffix = SUFFIX_HL4;
+        else if (data.suffix_HL5) chosenSuffix = SUFFIX_HL5;
         else if (data.suffix_D) chosenSuffix = SUFFIX_D;
         else if (data.suffix_F) chosenSuffix = SUFFIX_F;
 
@@ -126,7 +131,7 @@ export default function InventoryPage() {
           modelNumber = prefixStr ? prefixStr + "-" + chosenSuffix : chosenSuffix;
         }
         
-        if (modelNumber === "") modelNumber = "N/A"; // Should be caught by schema validation
+        if (modelNumber === "") modelNumber = "N/A"; 
         
         const tileDocRef = doc(db, TILES_COLLECTION, id);
         await updateDoc(tileDocRef, { ...tileBaseData, modelNumber });
@@ -137,7 +142,7 @@ export default function InventoryPage() {
         });
 
       } else { // Adding new tile(s)
-        const modelsToCreateMap = new Map<string, any>(); // Use a map to avoid duplicate model numbers if logic allows
+        const modelsToCreateMap = new Map<string, any>(); 
 
         const addModel = (suffix: string) => {
             const model = prefixStr ? prefixStr + "-" + suffix : suffix;
@@ -152,10 +157,12 @@ export default function InventoryPage() {
 
         if (data.suffix_HL1) addModel(SUFFIX_HL1);
         if (data.suffix_HL2) addModel(SUFFIX_HL2);
+        if (data.suffix_HL4) addModel(SUFFIX_HL4);
+        if (data.suffix_HL5) addModel(SUFFIX_HL5);
         if (data.suffix_D) addModel(SUFFIX_D);
         if (data.suffix_F) addModel(SUFFIX_F);
 
-        // If no suffixes were checked but a prefix was provided
+
         if (modelsToCreateMap.size === 0 && prefixStr) {
             if (!modelsToCreateMap.has(prefixStr)){
                 modelsToCreateMap.set(prefixStr, {
@@ -166,8 +173,6 @@ export default function InventoryPage() {
             }
         }
         
-        // If absolutely nothing was specified (e.g. only dimensions) - schema should prevent this.
-        // For safety, if still empty, create an "N/A" tile.
         if (modelsToCreateMap.size === 0 && !prefixStr) {
              if (!modelsToCreateMap.has("N/A")) {
                  modelsToCreateMap.set("N/A", {

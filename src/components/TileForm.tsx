@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -13,7 +14,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,8 @@ const SUFFIX_HL1 = "HL-1";
 const SUFFIX_HL2 = "HL-2";
 const SUFFIX_D = "D";
 const SUFFIX_F = "F";
+const SUFFIX_HL4 = "HL-4";
+const SUFFIX_HL5 = "HL-5";
 
 
 const getTileSchema = (t: (key: string, options?: Record<string, string | number>) => string) => z.object({
@@ -40,19 +42,21 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
   suffix_HL2: z.boolean().optional(),
   suffix_D: z.boolean().optional(),
   suffix_F: z.boolean().optional(),
+  suffix_HL4: z.boolean().optional(),
+  suffix_HL5: z.boolean().optional(),
   width: z.coerce.number({invalid_type_error: t("widthRequiredError")}).positive({ message: t("widthPositiveError") }),
   height: z.coerce.number({invalid_type_error: t("heightRequiredError")}).positive({ message: t("heightPositiveError") }),
   quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }),
 }).refine(data => {
   const prefixProvided = data.modelNumberPrefix !== undefined;
-  const anySuffixChecked = data.suffix_HL1 || data.suffix_HL2 || data.suffix_D || data.suffix_F;
+  const anySuffixChecked = data.suffix_HL1 || data.suffix_HL2 || data.suffix_D || data.suffix_F || data.suffix_HL4 || data.suffix_HL5;
   return prefixProvided || anySuffixChecked;
 }, {
   message: t("modelNumberRequiredError"),
   path: ["modelNumberPrefix"], 
 }).refine(data => {
-  // HL-1 and HL-2 require a prefix
-  if ((data.suffix_HL1 || data.suffix_HL2) && data.modelNumberPrefix === undefined) {
+  // HL-1, HL-2, HL-4, HL-5 require a prefix
+  if ((data.suffix_HL1 || data.suffix_HL2 || data.suffix_HL4 || data.suffix_HL5) && data.modelNumberPrefix === undefined) {
     return false;
   }
   return true;
@@ -83,6 +87,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       suffix_HL2: false,
       suffix_D: false,
       suffix_F: false,
+      suffix_HL4: false,
+      suffix_HL5: false,
       width: undefined,
       height: undefined,
       quantity: undefined,
@@ -96,6 +102,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       let parsedSuffix_HL2 = false;
       let parsedSuffix_D = false;
       let parsedSuffix_F = false;
+      let parsedSuffix_HL4 = false;
+      let parsedSuffix_HL5 = false;
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
@@ -108,6 +116,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         } else if (fullMN.endsWith("-" + SUFFIX_HL2)) {
           parsedSuffix_HL2 = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL2.length + 1));
+        } else if (fullMN.endsWith("-" + SUFFIX_HL4)) {
+          parsedSuffix_HL4 = true;
+          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL4.length + 1));
+        } else if (fullMN.endsWith("-" + SUFFIX_HL5)) {
+          parsedSuffix_HL5 = true;
+          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL5.length + 1));
         } else if (fullMN.endsWith("-" + SUFFIX_D)) {
           parsedSuffix_D = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_D.length + 1));
@@ -124,14 +138,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         
         if (mnRemainder && mnRemainder.length > 0) {
             const num = parseFloat(mnRemainder);
-            if (!isNaN(num) && String(num) === mnRemainder) { // Check if it's purely numeric
+            if (!isNaN(num) && String(num) === mnRemainder) { 
                  parsedPrefix = num;
-            } else {
-                // If mnRemainder is not a number, and wasn't a standalone suffix, it might be an unhandled prefix.
-                // For simplicity, we only parse numeric prefixes.
-                // If the fullMN was something like "CUSTOMPREFIX" and no suffix matched, prefix remains undefined.
-                // If it was "CUSTOMPREFIX-HL1", mnRemainder would be "CUSTOMPREFIX", and prefix remains undefined.
-                // This part assumes prefixes are numbers, or the entire model number is a suffix if not numeric.
             }
         }
       }
@@ -142,6 +150,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         suffix_HL2: parsedSuffix_HL2,
         suffix_D: parsedSuffix_D,
         suffix_F: parsedSuffix_F,
+        suffix_HL4: parsedSuffix_HL4,
+        suffix_HL5: parsedSuffix_HL5,
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
@@ -153,6 +163,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         suffix_HL2: false,
         suffix_D: false,
         suffix_F: false,
+        suffix_HL4: false,
+        suffix_HL5: false,
         width: undefined,
         height: undefined,
         quantity: undefined,
@@ -196,11 +208,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             
             <div className="space-y-2">
                 <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
-                <FormDescription>{t('suffixCheckboxesDescription')}</FormDescription>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {[
                     { name: "suffix_HL1" as const, label: SUFFIX_HL1 },
                     { name: "suffix_HL2" as const, label: SUFFIX_HL2 },
+                    { name: "suffix_HL4" as const, label: SUFFIX_HL4 },
+                    { name: "suffix_HL5" as const, label: SUFFIX_HL5 },
                     { name: "suffix_D" as const, label: SUFFIX_D },
                     { name: "suffix_F" as const, label: SUFFIX_F },
                   ].map(suffix => (
@@ -222,6 +235,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                                     form.setValue("suffix_HL2", suffix.name === "suffix_HL2");
                                     form.setValue("suffix_D", suffix.name === "suffix_D");
                                     form.setValue("suffix_F", suffix.name === "suffix_F");
+                                    form.setValue("suffix_HL4", suffix.name === "suffix_HL4");
+                                    form.setValue("suffix_HL5", suffix.name === "suffix_HL5");
                                   } else {
                                      field.onChange(false); // Allow unchecking
                                   }

@@ -1,3 +1,4 @@
+
 {
   "appTitle": "Zibon Ceramic",
   "appDescription": "Track your tile inventory with Zibon Ceramic.",
@@ -25,9 +26,9 @@
   "modelNumberRequiredError": "A model number part (Prefix or a Suffix checkbox) is required.",
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number.",
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
-  "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1 or HL-2 is selected.",
+  "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-4 or HL-5 is selected.",
   "suffixCheckboxesLabel": "Suffixes",
-  "suffixCheckboxesDescription": "Select suffix(es). If adding, multiple selections create multiple tiles. If editing, only one suffix applies.",
+  "suffixCheckboxesDescription": "If adding, multiple selections create multiple tiles. If editing, only one suffix applies.",
   "widthLabel": "Width (in)",
   "widthPlaceholder": "e.g., 24",
   "widthPositiveError": "Width must be a positive number.",

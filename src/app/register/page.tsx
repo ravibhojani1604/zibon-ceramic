@@ -1,53 +1,30 @@
+
 'use client';
 
 import AuthForm from '@/components/AuthForm';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useTranslation } from '@/context/i18n';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+// No need for useEffect or useState here if AuthContext handles all main logic
 
 export default function RegisterPage() {
-  const { register, user, loading: authOperationLoading, isInitializing } = useAuth();
+  // When RegisterPage renders, AuthContext.isInitializing should be false.
+  const { register, user, loading: authOperationLoading } = useAuth();
   const { t } = useTranslation();
-  const router = useRouter();
-  const [canShowForm, setCanShowForm] = useState(false);
 
-  useEffect(() => {
-    if (!isInitializing) { // Auth state is resolved
-      if (user) {
-        // If user is somehow already logged in (e.g., navigated here manually)
-        router.replace('/inventory');
-      } else {
-        setCanShowForm(true); // Safe to show form
-      }
-    }
-  }, [user, isInitializing, router]);
-
-  if (isInitializing || (!canShowForm && !user)) {
-    // If AuthProvider is initializing, it shows its own loader (handled by AuthProvider).
-    // This condition also covers:
-    // 1. Auth is resolved, no user, but useEffect hasn't run yet to set canShowForm (client initial render).
-    // 2. Auth is resolved, user exists (so redirecting), canShowForm is false.
-    // In these cases, show a loading message. Server will render this too, ensuring consistency.
+  if (user) {
+    // User is logged in (e.g. navigated here manually). AuthContext should redirect.
+    // This UI serves as a placeholder during that redirect.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
-        <p>{t(user ? 'authForm.loadingRedirect' : 'authForm.loadingPage')}</p>
+        <p>{t('authForm.loadingRedirect')}</p>
       </div>
     );
   }
 
-  if (user && !isInitializing) {
-    // Fallback: if user exists and auth is done, render nothing while redirecting.
-    return null;
-  }
-
-  // Render the register form only if:
-  // - Auth is initialized (isInitializing is false)
-  // - No user is present (user is null)
-  // - Client-side effect has confirmed it's okay to show the form (canShowForm is true)
+  // If no user, show the register form.
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
        <div className="absolute top-4 right-4 flex gap-2">

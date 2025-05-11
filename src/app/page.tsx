@@ -9,25 +9,29 @@ import { useTranslation } from '@/context/i18n';
 
 
 export default function HomePage() {
-  const { user, loading } = useAuth();
+  const { user, isInitializing } = useAuth(); // Use isInitializing for the check
   const router = useRouter();
   const { t } = useTranslation();
 
   useEffect(() => {
-    if (!loading) {
+    // Wait for auth state to be fully initialized
+    if (!isInitializing) {
       if (user) {
         router.replace('/inventory');
       } else {
         router.replace('/login');
       }
     }
-  }, [user, loading, router]);
+  }, [user, isInitializing, router]);
 
+  // This loading UI is shown while waiting for isInitializing to become false,
+  // or while the redirect is in progress.
+  // AuthProvider also shows a loader, so this might be brief or only for the redirect itself.
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
        <div className="flex items-center justify-center mb-6">
          <svg
-            className="h-16 w-16 text-primary animate-spin" // Added animate-spin for loading feel
+            className="h-16 w-16 text-primary animate-spin"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

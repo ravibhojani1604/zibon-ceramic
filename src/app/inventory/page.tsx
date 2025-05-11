@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -40,14 +39,14 @@ const typeConfigPage = [
 
 
 export default function InventoryPage() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, isLoggingOut } = useAuth(); // Added isLoggingOut
   const router = useRouter();
 
   const [rawTiles, setRawTiles] = useState<Tile[]>([]);
   const [groupedTiles, setGroupedTiles] = useState<GroupedDisplayTile[]>([]);
   
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // For tile data loading
+  const [isLoading, setIsLoading] = useState(true); 
   const { toast } = useToast();
   const { t, locale } = useTranslation();
 
@@ -58,10 +57,10 @@ export default function InventoryPage() {
 
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !user && !isLoggingOut) { // Also check isLoggingOut
       router.push('/login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, isLoggingOut]);
 
 
   const groupTiles = useCallback((firestoreTiles: Tile[]): GroupedDisplayTile[] => {
@@ -127,11 +126,22 @@ export default function InventoryPage() {
   }, [t]);
 
   useEffect(() => {
-    if (!user) return; // Don't fetch if no user
+    // If no user or if logout process has started, do not set up listener.
+    // Cleanup from previous effect run (if any) will handle unsubscription.
+    if (!user || isLoggingOut) {
+      console.log(`InventoryPage: Firestore listener guard. User: ${!!user}, IsLoggingOut: ${isLoggingOut}. Ensuring no active listener.`);
+      // If user is null or logging out, and a listener was active from a previous state,
+      // the cleanup function (return () => unsubscribe()) from *that* effect run will be called.
+      // We then return early here to prevent setting up a new one.
+      setRawTiles([]); // Clear data if user logs out or is logging out
+      setGroupedTiles([]);
+      setIsLoading(false); // No longer loading if no user/logging out
+      return;
+    }
 
     let unsubscribe = () => {};
     const setupFirestoreListener = async () => {
-      setIsLoading(true); // Set loading true when starting to fetch
+      setIsLoading(true); 
       try {
         const { db } = await getFirebaseInstances();
         if (!db) {
@@ -141,8 +151,13 @@ export default function InventoryPage() {
           return;
         }
 
+        console.log("InventoryPage: Setting up Firestore listener.");
         const tilesQuery = query(collection(db, TILES_COLLECTION), orderBy("createdAt", "desc"));
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
+          if (isLoggingOut) { // Double check, in case snapshot arrives while isLoggingOut becomes true
+            console.log("InventoryPage: isLoggingOut became true during snapshot processing. Ignoring snapshot.");
+            return;
+          }
           const fetchedTiles: Tile[] = [];
           querySnapshot.forEach((docSnapshot) => {
             const data = docSnapshot.data();
@@ -171,8 +186,12 @@ export default function InventoryPage() {
     };
 
     setupFirestoreListener();
-    return () => unsubscribe();
-  }, [user, toast, t, groupTiles]);
+    
+    return () => {
+        console.log("InventoryPage: Firestore listener cleanup function called.");
+        unsubscribe();
+    };
+  }, [user, isLoggingOut, toast, t, groupTiles]); // Added isLoggingOut
 
 
   useEffect(() => {
@@ -362,7 +381,7 @@ export default function InventoryPage() {
       console.error("Error saving tile(s):", error);
       toast({ title: t("saveErrorTitle"), description: t("saveErrorDescription"), variant: "destructive" });
     }
-  }, [toast, t, formMode, editingVariant, editingGroup]);
+  }, [toast, t, formMode, editingGroup]); // Removed editingVariant as it's not used in this simplified flow
 
   const handleEditGroup = useCallback((group: GroupedDisplayTile) => {
     setFormMode('editGroup');
@@ -426,13 +445,14 @@ export default function InventoryPage() {
     return "";
   }, [formMode, t]);
 
-  if (authLoading || (!user && !authLoading)) {
+  // Show loading skeleton if auth is loading OR if user is not yet available (and not in logout process)
+  if (authLoading || (!user && !isLoggingOut)) {
     return (
          <div className="flex items-center justify-center min-h-screen bg-background">
             <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
+              <Skeleton className="h-16 w-16 text-primary mx-auto animate-spin" data-ai-hint="ceramic tile"/>
               <Skeleton className="h-8 w-3/4 mx-auto" />
               <Skeleton className="h-6 w-1/2 mx-auto" />
-              <Skeleton className="h-10 w-full mt-4" />
             </div>
          </div>
     );
@@ -528,7 +548,7 @@ export default function InventoryPage() {
           </DialogContent>
         </Dialog>
 
-        {isLoading ? (
+        {isLoading && !isLoggingOut ? ( // Show skeleton only if loading and not in logout process
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
                <Card key={index} className="w-full shadow-md">

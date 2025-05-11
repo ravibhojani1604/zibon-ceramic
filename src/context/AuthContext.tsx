@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { User as FirebaseUser, AuthError } from 'firebase/auth';
@@ -20,6 +19,7 @@ import type { AuthFormData } from '@/components/AuthForm';
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
+  isLoggingOut: boolean; // Added to signal logout process
   login: (data: AuthFormData) => Promise<void>;
   register: (data: AuthFormData) => Promise<void>;
   logout: () => Promise<void>;
@@ -27,7 +27,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to prevent toast spamming for initialization errors
 const toastTimeouts = new Map<string, NodeJS.Timeout>();
 const showToastOnce = (id: string, toastFn: () => void, delay = 300) => {
   if (toastTimeouts.has(id)) {
@@ -44,6 +43,7 @@ const showToastOnce = (id: string, toastFn: () => void, delay = 300) => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false); // State to signal logout
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -55,13 +55,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const { auth } = await ensureFirebaseInitialized();
         
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
           setUser(currentUser);
           setLoading(false);
           setInitialAuthDone(true);
+          if (!currentUser) {
+            console.log("AuthContext: User signed out, user state updated to null.");
+          }
         });
         return () => {
-          unsubscribe();
+          unsubscribeAuth();
         }
 
       } catch (error: any) {
@@ -95,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { auth } = await getFirebaseInstances(); 
       if (!auth) throw new Error("Auth not initialized for login");
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      // onAuthStateChanged will update user state and loading state
       router.push('/inventory'); 
       toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
     } catch (error) {
@@ -115,6 +117,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           break;
         case 'auth/network-request-failed':
           errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error. Please check your connection and try again.";
+          break;
+        default: // Default to Firebase's message if not specifically handled
+          errorMessage = authError.message || (t('authForm.loginFailedTitle') || "Login failed. Please try again.");
           break;
       }
       toast({ title: t('authForm.loginFailedTitle'), description: errorMessage, variant: "destructive" });
@@ -150,6 +155,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'auth/network-request-failed':
             errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error. Please check your connection and try again.";
             break;
+        default:
+            errorMessage = authError.message || (t('authForm.registerFailedTitle') || "Registration failed. Please try again.");
+            break;
       }
       toast({ title: t('authForm.registerFailedTitle'), description: errorMessage, variant: "destructive" });
     } finally {
@@ -158,20 +166,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    setLoading(true);
     if (!user) {
       console.log("User already signed out or not signed in. Redirecting to login.");
+      if (isLoggingOut) setIsLoggingOut(false);
+      if (loading) setLoading(false);
       router.push('/login');
-      setLoading(false);
       return;
     }
+
+    setIsLoggingOut(true); // Signal that logout process has started
+    setLoading(true); // Indicate an operation is in progress
 
     try {
       const { auth } = await getFirebaseInstances();
       if (!auth) {
         throw new Error(t('authForm.authInitErrorLogout') || "Authentication service is not available for logout. Please try again.");
       }
-      await signOut(auth);
+      await signOut(auth); // This will trigger onAuthStateChanged
+      // onAuthStateChanged is responsible for setting user to null and setLoading to false
       router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
@@ -184,6 +196,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorMessage = t('authForm.errorLogoutPermission') || "Could not log out due to a permission issue. Please try again or contact support.";
       } else if (authError.message.includes("Auth not initialized")) {
         errorMessage = t('authForm.authInitErrorLogout');
+      } else {
+        errorMessage = authError.message || (t('authForm.logoutFailedTitle') || "Logout failed. Please try again.");
       }
       
       toast({ 
@@ -191,8 +205,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: errorMessage, 
         variant: "destructive" 
       });
+      setLoading(false); // Ensure loading is false if signOut fails and onAuthStateChanged doesn't run to clear it
     } finally {
-        setLoading(false);
+        setIsLoggingOut(false); // Reset the flag when logout process is complete (or failed)
+        // setLoading(false) should be handled by onAuthStateChanged on success, or catch block on error.
+        // If signOut was successful, onAuthStateChanged handles setLoading.
+        // If signOut failed, the catch block should have set loading to false.
     }
   };
   
@@ -210,7 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, isLoggingOut, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

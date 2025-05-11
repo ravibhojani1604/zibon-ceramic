@@ -40,29 +40,38 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     resolver: zodResolver(tileSchema),
     defaultValues: {
       type: "",
-      width: undefined,
-      height: undefined,
-      quantity: undefined,
+      width: "" as unknown as number, // Initialize with empty string for controlled input
+      height: "" as unknown as number, // Initialize with empty string for controlled input
+      quantity: "" as unknown as number, // Initialize with empty string for controlled input
     },
   });
 
   useEffect(() => {
     if (editingTile) {
-      form.reset(editingTile);
+      form.reset({
+        ...editingTile,
+        // Ensure width, height, quantity are strings if they are numbers from editingTile,
+        // or keep them as numbers and let the input handle coercion.
+        // For controlled inputs, it's better to ensure they get a string or number, not undefined.
+        // react-hook-form handles number values correctly for type="number" inputs.
+        width: editingTile.width,
+        height: editingTile.height,
+        quantity: editingTile.quantity,
+      });
     } else {
       form.reset({
         type: "",
-        width: undefined,
-        height: undefined,
-        quantity: undefined,
+        width: "" as unknown as number,
+        height: "" as unknown as number,
+        quantity: "" as unknown as number,
       });
     }
   }, [editingTile, form]);
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
-    if (!editingTile) { // Only reset for new tile additions, edit mode reset is handled by useEffect
-        form.reset();
+    if (!editingTile) { // Only reset for new tile additions, edit mode reset is handled by useEffect if needed
+        form.reset(); // This will use the defaultValues: type:"", width:"", height:"", quantity:""
     }
   };
 

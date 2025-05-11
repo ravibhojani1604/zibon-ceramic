@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added import
 
 // Suffix constants
 const SUFFIX_L = "L";
@@ -168,11 +169,16 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   useEffect(() => {
     if (!isEditing) {
       const allChecked = suffixConfig.every(sf => !!form.getValues(sf.name));
-      if (allChecked !== selectAllSuffixes) {
+      // Only update selectAllSuffixes if its current state differs from allChecked
+      // This prevents an infinite loop if selectAllSuffixes itself is in the dependency array of another effect
+      // that might trigger a form value change.
+      if (allChecked !== selectAllSuffixes) { 
         setSelectAllSuffixes(allChecked);
       }
     }
-  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [isEditing, form, selectAllSuffixes, ...watchedSuffixes]); // Added watchedSuffixes to correctly track changes
+  
 
   useEffect(() => {
     if (editingTile) {
@@ -221,7 +227,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset(resetValues);
     } else {
       form.reset(defaultFormValues);
-      if (selectAllSuffixes) { // Only set if it's true, to avoid unnecessary re-render
+      if (selectAllSuffixes) { 
         setSelectAllSuffixes(false);
       }
     }
@@ -248,200 +254,196 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   return (
     <CardContent className="pt-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="modelNumberPrefix"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('modelNumberPrefixLabel')}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder={t('modelNumberPrefixPlaceholder')}
-                    {...field}
-                    value={field.value ?? ''}
-                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                    step="any"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <div className="space-y-2">
-              <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
-              {!isEditing && (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+        <ScrollArea className="max-h-[60vh] pr-2"> {/* Added ScrollArea and padding for scrollbar */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="modelNumberPrefix"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('modelNumberPrefixLabel')}</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={selectAllSuffixes}
-                      onCheckedChange={handleSelectAllChange}
-                      id="select-all-suffixes"
-                      disabled={isEditing}
+                    <Input
+                      type="number"
+                      placeholder={t('modelNumberPrefixPlaceholder')}
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                      step="any"
                     />
                   </FormControl>
-                  <FormLabel htmlFor="select-all-suffixes" className="font-normal">
-                    {t('selectAllSuffixes')}
-                  </FormLabel>
+                  <FormMessage />
                 </FormItem>
               )}
-              <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
-                {suffixConfig.map(sf => (
-                  <div key={sf.key} className="space-y-2">
-                    <FormField
-                      control={form.control}
-                      name={sf.name}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value ?? false}
-                              onCheckedChange={(checked) => {
-                                if (isEditing) {
-                                  if (typeof checked === 'boolean') {
-                                    suffixConfig.forEach(s => {
-                                      form.setValue(s.name, s.name === sf.name ? checked : false, {shouldValidate: true});
-                                    });
-                                  }
-                                } else {
-                                  field.onChange(checked); 
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            {sf.label}
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    {/* Show per-suffix quantity if !isEditing and this suffix is checked */}
-                    {!isEditing && form.watch(sf.name) && (
+            />
+            
+            <div className="space-y-2">
+                <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
+                {!isEditing && (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                    <FormControl>
+                      <Checkbox
+                        checked={selectAllSuffixes}
+                        onCheckedChange={handleSelectAllChange}
+                        id="select-all-suffixes"
+                        disabled={isEditing}
+                      />
+                    </FormControl>
+                    <FormLabel htmlFor="select-all-suffixes" className="font-normal">
+                      {t('selectAllSuffixes')}
+                    </FormLabel>
+                  </FormItem>
+                )}
+                <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 md:grid-cols-3">
+                  {suffixConfig.map(sf => (
+                    <div key={sf.key} className="space-y-2">
                       <FormField
                         control={form.control}
-                        name={sf.quantityName}
-                        render={({ field: qtyField }) => (
-                          <FormItem className="pl-3">
-                            <FormLabel htmlFor={sf.quantityName} className="text-xs">{t('quantityForSuffixLabel', {suffix: sf.label})}</FormLabel>
+                        name={sf.name}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
                             <FormControl>
-                              <Input
-                                id={sf.quantityName}
-                                type="number"
-                                placeholder={t('quantityPlaceholder')}
-                                {...qtyField}
-                                value={qtyField.value ?? ''}
-                                onChange={e => qtyField.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                                className="h-8 text-sm"
+                              <Checkbox
+                                checked={field.value ?? false}
+                                onCheckedChange={(checked) => {
+                                  if (isEditing) {
+                                    if (typeof checked === 'boolean') {
+                                      suffixConfig.forEach(s => {
+                                        form.setValue(s.name, s.name === sf.name ? checked : false, {shouldValidate: true});
+                                      });
+                                    }
+                                  } else {
+                                    field.onChange(checked); 
+                                  }
+                                }}
                               />
                             </FormControl>
-                            <FormMessage />
+                            <FormLabel className="font-normal">
+                              {sf.label}
+                            </FormLabel>
                           </FormItem>
                         )}
                       />
-                    )}
-                  </div>
-                ))}
-              </div>
-              {/* Display model number related errors that might not be tied to a single field if prefix is involved */}
-              {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || 
-               form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && 
-               !form.formState.dirtyFields.modelNumberPrefix && // Show only if not specific to prefix field input
-                 Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') // Avoid double messaging
-                 && (
-                 <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
-              )}
-          </div>
+                      {/* Show per-suffix quantity if !isEditing and this suffix is checked */}
+                      {!isEditing && form.watch(sf.name) && (
+                        <FormField
+                          control={form.control}
+                          name={sf.quantityName}
+                          render={({ field: qtyField }) => (
+                            <FormItem className="pl-3">
+                              <FormLabel htmlFor={sf.quantityName} className="text-xs">{t('quantityForSuffixLabel', {suffix: sf.label})}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  id={sf.quantityName}
+                                  type="number"
+                                  placeholder={t('quantityPlaceholder')}
+                                  {...qtyField}
+                                  value={qtyField.value ?? ''}
+                                  onChange={e => qtyField.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                                  className="h-8 text-sm"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Display model number related errors that might not be tied to a single field if prefix is involved */}
+                {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || 
+                 form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && 
+                 !form.formState.dirtyFields.modelNumberPrefix && // Show only if not specific to prefix field input
+                   Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') // Avoid double messaging
+                   && (
+                   <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
+                )}
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="width"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('widthLabel')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder={t('widthPlaceholder')}
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                      step="any"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="height"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('heightLabel')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder={t('heightPlaceholder')}
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                      step="any"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          {/* Show global quantity field if in edit mode, OR (not editing AND no suffixes checked AND prefix is provided) */}
-          {showGlobalQuantityField && (
-            <FormField
-              control={form.control}
-              name="quantity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('quantityLabel')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder={t('quantityPlaceholder')}
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={e => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseInt(val, 10));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
-          <div className="flex space-x-2">
-            <Button type="submit" className="w-full">
-              {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-              {isEditing ? t('updateTileButton') : t('addTileButton')}
-            </Button>
-            {isEditing && (
-              <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues);}} className="w-full">
-                <XCircle className="mr-2 h-4 w-4" />
-                {t('cancelButton')}
-              </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="width"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('widthLabel')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder={t('widthPlaceholder')}
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        step="any"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="height"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('heightLabel')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder={t('heightPlaceholder')}
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        step="any"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            {/* Show global quantity field if in edit mode, OR (not editing AND no suffixes checked AND prefix is provided) */}
+            {showGlobalQuantityField && (
+              <FormField
+                control={form.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('quantityLabel')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder={t('quantityPlaceholder')}
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          field.onChange(val === '' ? undefined : parseInt(val, 10));
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-             {!isEditing && ( // Add a cancel button for "Add New" mode in dialog
-                <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); }} className="w-full">
+
+            <div className="flex space-x-2 pt-2"> {/* Added pt-2 for spacing before buttons */}
+              <Button type="submit" className="w-full">
+                {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                {isEditing ? t('updateTileButton') : t('addTileButton')}
+              </Button>
+              {(isEditing || !isEditing) && ( // Show cancel always when in dialog
+                <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); setSelectAllSuffixes(false); }} className="w-full">
                      <XCircle className="mr-2 h-4 w-4" />
                     {t('cancelButton')}
                 </Button>
-            )}
-          </div>
-        </form>
+              )}
+            </div>
+          </form>
+        </ScrollArea>
       </Form>
     </CardContent>
   );

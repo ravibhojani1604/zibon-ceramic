@@ -8,7 +8,7 @@ import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Edit3 } from "lucide-react";
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCnCardDescription } from '@/components/ui/card'; // Renamed to avoid conflict
 import {
   Dialog,
   DialogContent,
@@ -188,13 +188,8 @@ export default function InventoryPage() {
     }
   }, [toast, tiles, editingTile, t]);
   
-  if (isLoading) { 
-     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Skeleton className="w-full h-full" />
-      </div>
-    );
-  }
+  // Removed full-page skeleton block from here to allow page structure (header, footer, main shell) to render faster.
+  // The loading state for the tile list itself is handled within the main content area.
 
   const isEditingForm = !!editingTile;
 

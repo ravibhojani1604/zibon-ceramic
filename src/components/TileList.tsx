@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight } from "lucide-react"; 
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+// Removed static imports for jsPDF, jspdf-autotable, and XLSX
+// import jsPDF from 'jspdf';
+// import 'jspdf-autotable'; // Or import autoTable from 'jspdf-autotable'
+// import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/context/i18n';
 
@@ -107,7 +108,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
     setTileToDelete(null);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (filteredTiles.length === 0) {
       toast({
         title: t("exportNoTiles"),
@@ -117,29 +118,41 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
       return;
     }
 
-    const doc = new jsPDF();
-    (doc as any).autoTable({
-      head: [['Model Number', 'Width (in)', 'Height (in)', 'Quantity']], // These headers are not translated, consider if needed.
-      body: filteredTiles.map(tile => [ 
-        tile.modelNumber || 'N/A',
-        tile.width,
-        tile.height,
-        tile.quantity,
-      ]),
-      startY: 20,
-      didDrawPage: (data: any) => {
-        doc.setFontSize(18);
-        doc.text("Zibon Ceramic - Tile Inventory", data.settings.margin.left, 15); // Static title in PDF
-      }
-    });
-    doc.save('zibon_ceramic_tile_inventory.pdf');
-    toast({
-      title: t("exportSuccessPDF"),
-      description: t("tileListCardTitle"), // Using card title as a generic description
-    });
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      
+      const doc = new jsPDF();
+      autoTable(doc, { // Use autoTable as a function
+        head: [['Model Number', 'Width (in)', 'Height (in)', 'Quantity']], 
+        body: filteredTiles.map(tile => [ 
+          tile.modelNumber || 'N/A',
+          tile.width,
+          tile.height,
+          tile.quantity,
+        ]),
+        startY: 20,
+        didDrawPage: (data: any) => {
+          doc.setFontSize(18);
+          doc.text("Zibon Ceramic - Tile Inventory", data.settings.margin.left, 15);
+        }
+      });
+      doc.save('zibon_ceramic_tile_inventory.pdf');
+      toast({
+        title: t("exportSuccessPDF"),
+        description: t("tileListCardTitle"), 
+      });
+    } catch (error) {
+      console.error("Failed to load PDF export libraries or export PDF:", error);
+      toast({
+        title: "Export Error",
+        description: "Could not export to PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredTiles.length === 0) {
       toast({
         title: t("exportNoTiles"),
@@ -148,20 +161,30 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
       });
       return;
     }
-    const dataToExport = filteredTiles.map(tile => ({ 
-      'Model Number': tile.modelNumber || 'N/A', // Headers in Excel not translated
-      'Width (in)': tile.width,
-      'Height (in)': tile.height,
-      'Quantity': tile.quantity,
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Tiles');
-    XLSX.writeFile(wb, 'zibon_ceramic_tile_inventory.xlsx');
-    toast({
-      title: t("exportSuccessExcel"),
-      description: t("tileListCardTitle"),
-    });
+    try {
+      const XLSX = await import('xlsx');
+      const dataToExport = filteredTiles.map(tile => ({ 
+        'Model Number': tile.modelNumber || 'N/A',
+        'Width (in)': tile.width,
+        'Height (in)': tile.height,
+        'Quantity': tile.quantity,
+      }));
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Tiles');
+      XLSX.writeFile(wb, 'zibon_ceramic_tile_inventory.xlsx');
+      toast({
+        title: t("exportSuccessExcel"),
+        description: t("tileListCardTitle"),
+      });
+    } catch (error) {
+      console.error("Failed to load Excel export library or export Excel:", error);
+      toast({
+        title: "Export Error",
+        description: "Could not export to Excel. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleItemsPerPageChange = (value: string) => {

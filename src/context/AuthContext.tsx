@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         await ensureFirebaseInitialized(); // Ensure Firebase is ready
         if (!auth) {
-          console.error("Firebase Auth is not initialized. Cannot set up auth listener.");
+          console.error("Firebase Auth is not available. Cannot set up auth listener.");
           setLoading(false);
           return;
         }
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setLoading(false);
         });
       } catch (error) {
-        console.error("Error ensuring Firebase is initialized for AuthProvider:", error);
+        console.error("Error during Firebase Auth initialization or listener setup:", error);
         setLoading(false); // Stop loading even if there's an error
       }
     };
@@ -69,16 +69,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const login = async (email: string, pass: string) => {
+    await ensureFirebaseInitialized();
     if (!auth) throw new Error("Firebase Auth is not initialized.");
     return signInWithEmailAndPassword(auth, email, pass);
   };
 
   const register = async (email: string, pass: string) => {
+    await ensureFirebaseInitialized();
     if (!auth) throw new Error("Firebase Auth is not initialized.");
     return createUserWithEmailAndPassword(auth, email, pass);
   };
 
   const logout = async () => {
+    await ensureFirebaseInitialized();
     if (!auth) throw new Error("Firebase Auth is not initialized.");
     return signOut(auth);
   };

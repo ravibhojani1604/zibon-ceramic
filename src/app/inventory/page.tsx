@@ -8,11 +8,12 @@ import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, LogOut } from "lucide-react";
+import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Added Card imports for skeleton
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
+  // DialogHeader, // Not used
+  // DialogTitle, // Not used in this simplified version of dialog
 } from "@/components/ui/dialog";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -59,10 +60,10 @@ export default function InventoryPage() {
         
         unsubscribe = onSnapshot(tilesQuery, (querySnapshot) => {
           const fetchedTiles: Tile[] = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
+          querySnapshot.forEach((docSnapshot) => { // Renamed doc to docSnapshot to avoid conflict
+            const data = docSnapshot.data();
             fetchedTiles.push({
-              id: doc.id,
+              id: docSnapshot.id,
               modelNumber: data.modelNumber || 'N/A',
               width: data.width,
               height: data.height,
@@ -100,8 +101,9 @@ export default function InventoryPage() {
   };
 
   const handleSaveTile = useCallback(async (data: TileFormData, id?: string) => {
+    await ensureFirebaseInitialized();
     if (!currentUser || !db) {
-      toast({ title: "Authentication Error", description: "You must be logged in to save tiles.", variant: "destructive"});
+      toast({ title: "Authentication or Database Error", description: "You must be logged in and database connected to save tiles.", variant: "destructive"});
       return;
     }
     
@@ -109,7 +111,7 @@ export default function InventoryPage() {
     if (data.modelNumberPrefix !== undefined && data.modelNumberPrefix !== null && String(data.modelNumberPrefix).trim() !== "") {
       modelNumber += String(data.modelNumberPrefix);
     }
-    if (data.modelNumberSuffix && data.modelNumberSuffix.trim() !== "" && data.modelNumberSuffix !== "_INTERNAL_NONE_SUFFIX_") {
+    if (data.modelNumberSuffix && data.modelNumberSuffix.trim() !== "" && data.modelNumberSuffix !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX) {
       if (modelNumber.length > 0) {
         modelNumber += "-";
       }
@@ -165,12 +167,13 @@ export default function InventoryPage() {
   }, []);
 
   const handleDeleteTile = useCallback(async (tileId: string) => {
+    await ensureFirebaseInitialized();
     if (!currentUser || !db) {
-      toast({ title: "Authentication Error", description: "You must be logged in to delete tiles.", variant: "destructive"});
+      toast({ title: "Authentication or Database Error", description: "You must be logged in and database connected to delete tiles.", variant: "destructive"});
       return;
     }
 
-    const tileToDelete = tiles.find(t => t.id === tileId);
+    const tileToDelete = tiles.find(tile => tile.id === tileId);
     if (!tileToDelete) return;
 
     try {
@@ -204,13 +207,15 @@ export default function InventoryPage() {
     }
   };
   
-  if (!currentUser) {
+  if (!currentUser && isLoading) { // Show skeleton if loading and no user (initial state)
      return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Skeleton className="w-full h-full" />
       </div>
     );
   }
+  // If still no current user after loading (e.g. redirect hasn't happened or failed auth),
+  // router.push should handle it, or show a message, but for now, this check is fine.
 
 
   return (
@@ -267,6 +272,7 @@ export default function InventoryPage() {
           }}
         >
           <DialogContent className="sm:max-w-lg">
+            {/* Removed DialogHeader and DialogTitle for simplicity, TileForm has its own title */}
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
@@ -309,3 +315,9 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+
+// This constant is used in TileForm.tsx, but its definition must be accessible here
+// if handleSaveTile uses it directly, or it should be passed from TileForm if more complex.
+// For now, assuming TileForm handles the translation to empty string if SELECT_ITEM_VALUE_FOR_NONE_SUFFIX is used.
+const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; 

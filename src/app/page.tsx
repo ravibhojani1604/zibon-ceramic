@@ -19,7 +19,7 @@ import {
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { db, ensureFirebaseInitialized } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -40,8 +40,8 @@ export default function InventoryPage() {
 
     const setupFirestoreListener = async () => {
       try {
-        await ensureFirebaseInitialized(); 
-        if (!db) {
+        const { db } = await getFirebaseInstances();
+        if (!db) { // Check if db is defined after async initialization
           console.error("Firestore is not initialized.");
           toast({ title: "Error", description: "Failed to connect to database.", variant: "destructive" });
           setIsLoading(false);
@@ -93,8 +93,8 @@ export default function InventoryPage() {
   };
 
   const handleSaveTile = useCallback(async (data: TileFormData, id?: string) => {
-    await ensureFirebaseInitialized();
-    if (!db) {
+    const { db } = await getFirebaseInstances();
+    if (!db) { // Check if db is defined after async initialization
       toast({ title: "Database Error", description: "Database not connected. Cannot save tile.", variant: "destructive"});
       return;
     }
@@ -159,8 +159,8 @@ export default function InventoryPage() {
   }, []);
 
   const handleDeleteTile = useCallback(async (tileId: string) => {
-    await ensureFirebaseInitialized();
-    if (!db) {
+    const { db } = await getFirebaseInstances();
+    if (!db) { // Check if db is defined after async initialization
       toast({ title: "Database Error", description: "Database not connected. Cannot delete tile.", variant: "destructive"});
       return;
     }

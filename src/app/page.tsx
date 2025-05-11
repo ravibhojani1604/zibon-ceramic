@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,7 +7,6 @@ import type { Tile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Edit3 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription as ShadCnCardDescription } from '@/components/ui/card'; 
 import {
   Dialog,
   DialogContent,
@@ -16,6 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader } from "@/components/ui/card"; // Added import
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
@@ -25,9 +24,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 
 const TILES_COLLECTION = "globalTilesInventory";
-const SELECT_ITEM_VALUE_FOR_NONE_SUFFIX = "_INTERNAL_NONE_SUFFIX_"; 
-const CHECKBOX_SUFFIX_HL1 = "HL-1";
-const CHECKBOX_SUFFIX_HL2 = "HL-2";
+
+// Suffix constants (should match TileForm.tsx)
+const SUFFIX_HL1 = "HL-1";
+const SUFFIX_HL2 = "HL-2";
+const SUFFIX_D = "D";
+const SUFFIX_F = "F";
+
 
 export default function InventoryPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -107,26 +110,23 @@ export default function InventoryPage() {
       quantity: data.quantity,
     };
 
+    const prefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix) : "";
+
     try {
       if (id) { // Editing existing tile
-        let modelNumber = "";
-        if (data.modelNumberPrefix !== undefined) {
-          modelNumber += String(data.modelNumberPrefix);
-        }
-        // For editing, we primarily use modelNumberSuffixSelect or reconstruct based on HL flags if they were part of original model
-        // The form logic for populating these fields during edit is key.
-        // Here, we assume the form data reflects the single suffix being edited.
-        if (data[CHECKBOX_SUFFIX_HL1] && data.modelNumberPrefix !== undefined) {
-            modelNumber = (modelNumber.length > 0 ? modelNumber + "-" : "") + CHECKBOX_SUFFIX_HL1;
-        } else if (data[CHECKBOX_SUFFIX_HL2] && data.modelNumberPrefix !== undefined) {
-            modelNumber = (modelNumber.length > 0 ? modelNumber + "-" : "") + CHECKBOX_SUFFIX_HL2;
-        } else if (data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
-          if (modelNumber.length > 0) modelNumber += "-";
-          modelNumber += data.modelNumberSuffixSelect;
-        }
+        let modelNumber = prefixStr;
+        let chosenSuffix = "";
 
+        if (data.suffix_HL1) chosenSuffix = SUFFIX_HL1;
+        else if (data.suffix_HL2) chosenSuffix = SUFFIX_HL2;
+        else if (data.suffix_D) chosenSuffix = SUFFIX_D;
+        else if (data.suffix_F) chosenSuffix = SUFFIX_F;
 
-        if(modelNumber === "") modelNumber = "N/A";
+        if (chosenSuffix) {
+          modelNumber = prefixStr ? prefixStr + "-" + chosenSuffix : chosenSuffix;
+        }
+        
+        if (modelNumber === "") modelNumber = "N/A"; // Should be caught by schema validation
         
         const tileDocRef = doc(db, TILES_COLLECTION, id);
         await updateDoc(tileDocRef, { ...tileBaseData, modelNumber });
@@ -137,55 +137,60 @@ export default function InventoryPage() {
         });
 
       } else { // Adding new tile(s)
-        const modelsToCreate: string[] = [];
-        let prefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix) : "";
+        const modelsToCreateMap = new Map<string, any>(); // Use a map to avoid duplicate model numbers if logic allows
 
-        if (data[CHECKBOX_SUFFIX_HL1] && prefixStr) {
-          modelsToCreate.push(prefixStr + "-" + CHECKBOX_SUFFIX_HL1);
-        }
-        if (data[CHECKBOX_SUFFIX_HL2] && prefixStr) {
-          modelsToCreate.push(prefixStr + "-" + CHECKBOX_SUFFIX_HL2);
-        }
+        const addModel = (suffix: string) => {
+            const model = prefixStr ? prefixStr + "-" + suffix : suffix;
+            if (!modelsToCreateMap.has(model)) {
+                 modelsToCreateMap.set(model, {
+                    ...tileBaseData,
+                    modelNumber: model,
+                    createdAt: serverTimestamp(),
+                });
+            }
+        };
 
-        // If no HL suffixes were checked OR if a prefix wasn't provided for them,
-        // fall back to the select suffix or just prefix.
-        if (modelsToCreate.length === 0) {
-          let singleModel = prefixStr;
-          if (data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
-            if (singleModel.length > 0) singleModel += "-";
-            singleModel += data.modelNumberSuffixSelect;
-          }
-          if (singleModel === "" && prefixStr === "") singleModel = "N/A"; // Handle case where everything is empty
-          else if (singleModel === "") singleModel = prefixStr || "N/A";
+        if (data.suffix_HL1) addModel(SUFFIX_HL1);
+        if (data.suffix_HL2) addModel(SUFFIX_HL2);
+        if (data.suffix_D) addModel(SUFFIX_D);
+        if (data.suffix_F) addModel(SUFFIX_F);
 
-
-          if (singleModel !== "N/A" || (singleModel === "N/A" && prefixStr !== "N/A" )) { // ensure we have something to add
-             modelsToCreate.push(singleModel);
-          }
+        // If no suffixes were checked but a prefix was provided
+        if (modelsToCreateMap.size === 0 && prefixStr) {
+            if (!modelsToCreateMap.has(prefixStr)){
+                modelsToCreateMap.set(prefixStr, {
+                     ...tileBaseData,
+                    modelNumber: prefixStr,
+                    createdAt: serverTimestamp(),
+                });
+            }
         }
         
-        if (modelsToCreate.length === 0 && prefixStr) { // Case: only prefix provided, no specific suffix and no HL
-             modelsToCreate.push(prefixStr);
-        } else if (modelsToCreate.length === 0 && !prefixStr && data.modelNumberSuffixSelect && data.modelNumberSuffixSelect !== SELECT_ITEM_VALUE_FOR_NONE_SUFFIX && data.modelNumberSuffixSelect.trim() !== "") {
-            // Case: only select suffix provided (e.g. "L"), no prefix
-             modelsToCreate.push(data.modelNumberSuffixSelect);
+        // If absolutely nothing was specified (e.g. only dimensions) - schema should prevent this.
+        // For safety, if still empty, create an "N/A" tile.
+        if (modelsToCreateMap.size === 0 && !prefixStr) {
+             if (!modelsToCreateMap.has("N/A")) {
+                 modelsToCreateMap.set("N/A", {
+                     ...tileBaseData,
+                    modelNumber: "N/A",
+                    createdAt: serverTimestamp(),
+                });
+            }
         }
+        
+        const modelsToCreate = Array.from(modelsToCreateMap.keys());
+        const tileDataObjects = Array.from(modelsToCreateMap.values());
 
 
-        if (modelsToCreate.length === 0 || (modelsToCreate.length === 1 && modelsToCreate[0] === "N/A" && !prefixStr && (!data.modelNumberSuffixSelect || data.modelNumberSuffixSelect === SELECT_ITEM_VALUE_FOR_NONE_SUFFIX))) {
+        if (tileDataObjects.length === 0 ) {
            toast({ title: "Save Error", description: "No valid model number to save.", variant: "destructive" });
-           return; // Nothing to add based on form input
+           return; 
         }
-
 
         const batch = writeBatch(db);
-        modelsToCreate.forEach(modelNum => {
+        tileDataObjects.forEach(tileData => {
           const newTileDocRef = doc(collection(db, TILES_COLLECTION));
-          batch.set(newTileDocRef, {
-            ...tileBaseData,
-            modelNumber: modelNum,
-            createdAt: serverTimestamp(),
-          });
+          batch.set(newTileDocRef, tileData);
         });
         await batch.commit();
         
@@ -315,7 +320,7 @@ export default function InventoryPage() {
         {isLoading ? ( 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
-              <Card key={index} className="w-full max-w-xs sm:w-72 shadow-md">
+              <Card key={index} className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-xs xl:max-w-sm shadow-md">
                 <CardHeader className="pb-2">
                   <Skeleton className="h-6 w-3/4" />
                 </CardHeader>

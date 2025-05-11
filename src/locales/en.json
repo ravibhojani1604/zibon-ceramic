@@ -1,4 +1,3 @@
-
 {
   "appTitle": "Zibon Ceramic",
   "appDescription": "Track your tile inventory with Zibon Ceramic.",
@@ -21,15 +20,14 @@
   "tileFormCardDescriptionAdd": "Fill in the details below to add new tile(s) to your inventory.",
   "tileFormCardDescriptionEdit": "Update the details for the selected tile.",
   "modelNumberLabel": "Model Number",
+  "modelNumberPrefixLabel": "Model Number Prefix",
   "modelNumberPrefixPlaceholder": "e.g., 123",
-  "modelNumberSuffixPlaceholder": "Select suffix (L, D, F, etc.)",
-  "modelNumberSuffixNone": "None (Prefix Only or HL Suffix)",
-  "modelNumberRequiredError": "A model number (Prefix, Suffix, or HL selection) is required.",
+  "modelNumberRequiredError": "A model number part (Prefix or a Suffix checkbox) is required.",
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number.",
   "modelNumberPrefixPositiveError": "Model prefix must be a positive number if entered.",
   "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1 or HL-2 is selected.",
-  "hlSuffixesLabel": "HL Suffixes (for multiple entries)",
-  "hlSuffixesDescription": "Select HL-1 and/or HL-2 to create separate entries for each with the same prefix and details. If selected, the suffix dropdown above is ignored.",
+  "suffixCheckboxesLabel": "Suffixes",
+  "suffixCheckboxesDescription": "Select suffix(es). If adding, multiple selections create multiple tiles. If editing, only one suffix applies.",
   "widthLabel": "Width (in)",
   "widthPlaceholder": "e.g., 24",
   "widthPositiveError": "Width must be a positive number.",
@@ -73,7 +71,6 @@
   "exportNoTilesDescription": "There are no tiles matching the current filter to export.",
 
   "toastTileAddedTitle": "Tile(s) Added",
-  "toastTileAddedDescription": "New tile \"{{modelNumber}}\" has been added successfully.",
   "toastTilesAddedDescription": "{{count}} tile(s) added: {{modelNumbers}}.",
   "toastTileUpdatedTitle": "Tile Updated",
   "toastTileUpdatedDescription": "The tile \"{{modelNumber}}\" has been updated successfully.",

@@ -1,4 +1,3 @@
-
 {
   "appTitle": "ઝિબોન સિરામિક",
   "appDescription": "ઝિબોન સિરામિક વડે તમારી ટાઇલ ઇન્વેન્ટરીને ટ્રૅક કરો.",
@@ -21,15 +20,14 @@
   "tileFormCardDescriptionAdd": "તમારી ઇન્વેન્ટરીમાં નવી ટાઇલ(ટાઇલ્સ) ઉમેરવા માટે નીચેની વિગતો ભરો.",
   "tileFormCardDescriptionEdit": "પસંદ કરેલી ટાઇલ માટે વિગતો અપડેટ કરો.",
   "modelNumberLabel": "મોડેલ નંબર",
+  "modelNumberPrefixLabel": "મોડેલ નંબર પ્રીફિક્સ",
   "modelNumberPrefixPlaceholder": "દા.ત., ૧૨૩",
-  "modelNumberSuffixPlaceholder": "પ્રત્યય પસંદ કરો (L, D, F, વગેરે)",
-  "modelNumberSuffixNone": "કોઈ નહીં (ફક્ત પ્રીફિક્સ અથવા HL પ્રત્યય)",
-  "modelNumberRequiredError": "મોડેલ નંબર (પ્રીફિક્સ, પ્રત્યય, અથવા HL પસંદગી) આવશ્યક છે.",
+  "modelNumberRequiredError": "મોડેલ નંબરનો ભાગ (પ્રીફિક્સ અથવા સફિક્સ ચેકબોક્સ) આવશ્યક છે.",
   "modelNumberPrefixInvalidError": "મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "જો દાખલ કરવામાં આવે તો મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixRequiredWithHL": "જો HL-1 અથવા HL-2 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
-  "hlSuffixesLabel": "HL પ્રત્યયો (એકથી વધુ એન્ટ્રી માટે)",
-  "hlSuffixesDescription": "HL-1 અને/અથવા HL-2 પસંદ કરો જેથી સમાન પ્રીફિક્સ અને વિગતો સાથે દરેક માટે અલગ એન્ટ્રી બનાવી શકાય. જો પસંદ કરેલ હોય, તો ઉપરનું પ્રત્યય ડ્રોપડાઉન અવગણવામાં આવશે.",
+  "suffixCheckboxesLabel": "પ્રત્યયો",
+  "suffixCheckboxesDescription": "પ્રત્યય(પ્રત્યયો) પસંદ કરો. જો ઉમેરી રહ્યા હો, તો બહુવિધ પસંદગીઓ બહુવિધ ટાઇલ્સ બનાવશે. જો સંપાદિત કરી રહ્યા હો, તો ફક્ત એક પ્રત્યય લાગુ પડે છે.",
   "widthLabel": "પહોળાઈ (ઇંચ)",
   "widthPlaceholder": "દા.ત., ૨૪",
   "widthPositiveError": "પહોળાઈ હકારાત્મક નંબર હોવી આવશ્યક છે.",
@@ -73,7 +71,6 @@
   "exportNoTilesDescription": "વર્તમાન ફિલ્ટર સાથે મેળ ખાતી કોઈ ટાઇલ્સ નિકાસ કરવા માટે નથી.",
 
   "toastTileAddedTitle": "ટાઇલ(ટાઇલ્સ) ઉમેરાઈ",
-  "toastTileAddedDescription": "નવી ટાઇલ \"{{modelNumber}}\" સફળતાપૂર્વક ઉમેરવામાં આવી છે.",
   "toastTilesAddedDescription": "{{count}} ટાઇલ(ટાઇલ્સ) ઉમેરાઈ: {{modelNumbers}}.",
   "toastTileUpdatedTitle": "ટાઇલ અપડેટ થઈ",
   "toastTileUpdatedDescription": "ટાઇલ \"{{modelNumber}}\" સફળતાપૂર્વક અપડેટ કરવામાં આવી છે.",

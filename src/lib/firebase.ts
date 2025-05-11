@@ -31,21 +31,28 @@ const initializationPromise: Promise<{ app: FirebaseApp | undefined, auth: Auth 
 
   try {
     let app: FirebaseApp;
+    console.log("Attempting to initialize Firebase...");
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
       console.log("Firebase initialized successfully.");
     } else {
       app = getApp();
       console.log("Firebase app already initialized.");
-    }
-
+    }    
+    console.log("Getting Auth instance...");
     const auth = getAuth(app);
+    console.log("Auth instance obtained.");
+
+    console.log("Getting Firestore instance...");
     const db = getFirestore(app);
+    console.log("Firestore instance obtained.");
 
     return { app, auth, db };
 
   } catch (error: any) {
-    console.error("Firebase initialization error:", error.message, error.code);
+    console.error("Firebase initialization error:");
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
     // Return undefined instances on error
     return { app: undefined, auth: undefined, db: undefined };
   }

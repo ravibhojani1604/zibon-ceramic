@@ -19,14 +19,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase'; // Corrected path
+import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
 const TILES_COLLECTION = "globalTilesInventory";
 
-// Suffix constants (should match TileForm.tsx)
+// Suffix constants
+const SUFFIX_L = "L";
 const SUFFIX_HL1 = "HL-1";
 const SUFFIX_HL2 = "HL-2";
 const SUFFIX_D = "D";
@@ -120,7 +121,8 @@ export default function InventoryPage() {
         let modelNumber = prefixStr;
         let chosenSuffix = "";
 
-        if (data.suffix_HL1) chosenSuffix = SUFFIX_HL1;
+        if (data.suffix_L) chosenSuffix = SUFFIX_L;
+        else if (data.suffix_HL1) chosenSuffix = SUFFIX_HL1;
         else if (data.suffix_HL2) chosenSuffix = SUFFIX_HL2;
         else if (data.suffix_HL4) chosenSuffix = SUFFIX_HL4;
         else if (data.suffix_HL5) chosenSuffix = SUFFIX_HL5;
@@ -154,7 +156,8 @@ export default function InventoryPage() {
                 });
             }
         };
-
+        
+        if (data.suffix_L) addModel(SUFFIX_L);
         if (data.suffix_HL1) addModel(SUFFIX_HL1);
         if (data.suffix_HL2) addModel(SUFFIX_HL2);
         if (data.suffix_HL4) addModel(SUFFIX_HL4);
@@ -356,3 +359,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

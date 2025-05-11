@@ -16,13 +16,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card"; // Removed Card import as it's not used directly
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 import { useTranslation } from '@/context/i18n';
 
 // Suffix constants
+const SUFFIX_L = "L";
 const SUFFIX_HL1 = "HL-1";
 const SUFFIX_HL2 = "HL-2";
 const SUFFIX_D = "D";
@@ -38,6 +39,7 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
       .positive({ message: t("modelNumberPrefixPositiveError") })
       .optional()
   ),
+  suffix_L: z.boolean().optional(),
   suffix_HL1: z.boolean().optional(),
   suffix_HL2: z.boolean().optional(),
   suffix_D: z.boolean().optional(),
@@ -49,7 +51,7 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
   quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }),
 }).refine(data => {
   const prefixProvided = data.modelNumberPrefix !== undefined;
-  const anySuffixChecked = data.suffix_HL1 || data.suffix_HL2 || data.suffix_D || data.suffix_F || data.suffix_HL4 || data.suffix_HL5;
+  const anySuffixChecked = data.suffix_L || data.suffix_HL1 || data.suffix_HL2 || data.suffix_D || data.suffix_F || data.suffix_HL4 || data.suffix_HL5;
   return prefixProvided || anySuffixChecked;
 }, {
   message: t("modelNumberRequiredError"),
@@ -83,6 +85,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     resolver: zodResolver(tileSchema),
     defaultValues: {
       modelNumberPrefix: undefined,
+      suffix_L: false,
       suffix_HL1: false,
       suffix_HL2: false,
       suffix_D: false,
@@ -98,6 +101,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
   useEffect(() => {
     if (editingTile) {
       let parsedPrefix: number | undefined = undefined;
+      let parsedSuffix_L = false;
       let parsedSuffix_HL1 = false;
       let parsedSuffix_HL2 = false;
       let parsedSuffix_D = false;
@@ -109,7 +113,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         const fullMN = editingTile.modelNumber;
         let mnRemainder = fullMN;
 
-        // Check for specific suffixes
+        // Order of checks: Longer, more specific suffixes first.
         if (fullMN.endsWith("-" + SUFFIX_HL1)) {
           parsedSuffix_HL1 = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL1.length + 1));
@@ -122,16 +126,22 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         } else if (fullMN.endsWith("-" + SUFFIX_HL5)) {
           parsedSuffix_HL5 = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_HL5.length + 1));
+        } else if (fullMN.endsWith("-" + SUFFIX_L)) {
+          parsedSuffix_L = true;
+          mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_L.length + 1));
         } else if (fullMN.endsWith("-" + SUFFIX_D)) {
           parsedSuffix_D = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_D.length + 1));
         } else if (fullMN.endsWith("-" + SUFFIX_F)) {
           parsedSuffix_F = true;
           mnRemainder = fullMN.substring(0, fullMN.length - (SUFFIX_F.length + 1));
-        } else if (fullMN === SUFFIX_D) { // Standalone D
+        } else if (fullMN === SUFFIX_L) { 
+          parsedSuffix_L = true;
+          mnRemainder = "";
+        } else if (fullMN === SUFFIX_D) { 
           parsedSuffix_D = true;
           mnRemainder = "";
-        } else if (fullMN === SUFFIX_F) { // Standalone F
+        } else if (fullMN === SUFFIX_F) { 
           parsedSuffix_F = true;
           mnRemainder = "";
         }
@@ -146,6 +156,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       
       form.reset({
         modelNumberPrefix: parsedPrefix,
+        suffix_L: parsedSuffix_L,
         suffix_HL1: parsedSuffix_HL1,
         suffix_HL2: parsedSuffix_HL2,
         suffix_D: parsedSuffix_D,
@@ -159,6 +170,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     } else {
       form.reset({
         modelNumberPrefix: undefined,
+        suffix_L: false,
         suffix_HL1: false,
         suffix_HL2: false,
         suffix_D: false,
@@ -181,20 +193,96 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 
 
   return (
-    <Card className="shadow-none border-none">
-      <CardContent className="pt-6">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <CardContent className="pt-6"> {/* Removed Card wrapper as DialogContent provides a card-like container */}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="modelNumberPrefix"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('modelNumberPrefixLabel')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder={t('modelNumberPrefixPlaceholder')}
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                    step="any"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <div className="space-y-2">
+              <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {[
+                  { name: "suffix_L" as const, label: SUFFIX_L },
+                  { name: "suffix_HL1" as const, label: SUFFIX_HL1 },
+                  { name: "suffix_HL2" as const, label: SUFFIX_HL2 },
+                  { name: "suffix_HL4" as const, label: SUFFIX_HL4 },
+                  { name: "suffix_HL5" as const, label: SUFFIX_HL5 },
+                  { name: "suffix_D" as const, label: SUFFIX_D },
+                  { name: "suffix_F" as const, label: SUFFIX_F },
+                ].map(suffix => (
+                  <FormField
+                    key={suffix.name}
+                    control={form.control}
+                    name={suffix.name}
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              if (isEditing) {
+                                // When editing, only one suffix can be active.
+                                if (checked) {
+                                  form.setValue("suffix_L", suffix.name === "suffix_L");
+                                  form.setValue("suffix_HL1", suffix.name === "suffix_HL1");
+                                  form.setValue("suffix_HL2", suffix.name === "suffix_HL2");
+                                  form.setValue("suffix_D", suffix.name === "suffix_D");
+                                  form.setValue("suffix_F", suffix.name === "suffix_F");
+                                  form.setValue("suffix_HL4", suffix.name === "suffix_HL4");
+                                  form.setValue("suffix_HL5", suffix.name === "suffix_HL5");
+                                } else {
+                                   field.onChange(false); // Allow unchecking
+                                }
+                              } else {
+                                field.onChange(checked); // Allow multiple checks when adding
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {suffix.label}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+              {/* Combined error message display for model number requirements */}
+              {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
+                 <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
+              )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="modelNumberPrefix"
+              name="width"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('modelNumberPrefixLabel')}</FormLabel>
+                  <FormLabel>{t('widthLabel')}</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder={t('modelNumberPrefixPlaceholder')}
+                      placeholder={t('widthPlaceholder')}
                       {...field}
                       value={field.value ?? ''}
                       onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
@@ -205,147 +293,71 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                 </FormItem>
               )}
             />
-            
-            <div className="space-y-2">
-                <FormLabel>{t('suffixCheckboxesLabel')}</FormLabel>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  {[
-                    { name: "suffix_HL1" as const, label: SUFFIX_HL1 },
-                    { name: "suffix_HL2" as const, label: SUFFIX_HL2 },
-                    { name: "suffix_HL4" as const, label: SUFFIX_HL4 },
-                    { name: "suffix_HL5" as const, label: SUFFIX_HL5 },
-                    { name: "suffix_D" as const, label: SUFFIX_D },
-                    { name: "suffix_F" as const, label: SUFFIX_F },
-                  ].map(suffix => (
-                    <FormField
-                      key={suffix.name}
-                      control={form.control}
-                      name={suffix.name}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={(checked) => {
-                                if (isEditing) {
-                                  // When editing, only one suffix can be active.
-                                  // Uncheck all other suffix fields before checking the new one.
-                                  if (checked) {
-                                    form.setValue("suffix_HL1", suffix.name === "suffix_HL1");
-                                    form.setValue("suffix_HL2", suffix.name === "suffix_HL2");
-                                    form.setValue("suffix_D", suffix.name === "suffix_D");
-                                    form.setValue("suffix_F", suffix.name === "suffix_F");
-                                    form.setValue("suffix_HL4", suffix.name === "suffix_HL4");
-                                    form.setValue("suffix_HL5", suffix.name === "suffix_HL5");
-                                  } else {
-                                     field.onChange(false); // Allow unchecking
-                                  }
-                                } else {
-                                  field.onChange(checked); // Allow multiple checks when adding
-                                }
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            {suffix.label}
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-                {/* Combined error message display for model number requirements */}
-                {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
-                   <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
-                )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="width"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('widthLabel')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder={t('widthPlaceholder')}
-                        {...field}
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                        step="any"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="height"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('heightLabel')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder={t('heightPlaceholder')}
-                        {...field}
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
-                        step="any"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
             <FormField
               control={form.control}
-              name="quantity"
+              name="height"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('quantityLabel')}</FormLabel>
+                  <FormLabel>{t('heightLabel')}</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder={t('quantityPlaceholder')}
+                      placeholder={t('heightPlaceholder')}
                       {...field}
                       value={field.value ?? ''}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          field.onChange(undefined);
-                        } else {
-                          const num = parseInt(val, 10);
-                          field.onChange(isNaN(num) ? undefined : num);
-                        }
-                      }}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                      step="any"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="flex space-x-2">
-              <Button type="submit" className="w-full">
-                {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                {isEditing ? t('updateTileButton') : t('addTileButton')}
+          </div>
+          <FormField
+            control={form.control}
+            name="quantity"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('quantityLabel')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder={t('quantityPlaceholder')}
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        field.onChange(undefined);
+                      } else {
+                        const num = parseInt(val, 10);
+                        field.onChange(isNaN(num) ? undefined : num);
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="flex space-x-2">
+            <Button type="submit" className="w-full">
+              {isEditing ? <Edit3 className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              {isEditing ? t('updateTileButton') : t('addTileButton')}
+            </Button>
+            {isEditing && (
+              <Button type="button" variant="outline" onClick={() => { form.reset(); onCancelEdit();}} className="w-full">
+                <XCircle className="mr-2 h-4 w-4" />
+                {t('cancelButton')}
               </Button>
-              {isEditing && (
-                <Button type="button" variant="outline" onClick={() => { form.reset(); onCancelEdit();}} className="w-full">
-                  <XCircle className="mr-2 h-4 w-4" />
-                  {t('cancelButton')}
-                </Button>
-              )}
-            </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+            )}
+          </div>
+        </form>
+      </Form>
+    </CardContent>
   );
 };
 
 export default TileForm;
+

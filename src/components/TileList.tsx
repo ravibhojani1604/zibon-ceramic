@@ -106,8 +106,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
           [t('exportHeaderFullModel')]: variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
                                 ? `${group.modelNumberPrefix}-${variant.typeSuffix}` 
                                 : (group.modelNumberPrefix === "N/A" && variant.typeSuffix && variant.typeSuffix !== "N/A" && variant.typeSuffix !== t('noTypeSuffix') ? variant.typeSuffix : group.modelNumberPrefix),
-          [t('exportHeaderWidth')]: group.width,
-          [t('exportHeaderHeight')]: group.height,
+          [t('exportHeaderDimensions')]: `${group.width} x ${group.height}`,
           [t('exportHeaderQuantity')]: variant.quantity,
         });
       });
@@ -129,19 +128,13 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
       const doc = new jsPDF();
       autoTable(doc, {
         head: [[
-            // t('exportHeaderModelPrefix'), // Removed
-            // t('exportHeaderType'), // Removed
             t('exportHeaderFullModel'), 
-            t('exportHeaderWidth'), 
-            t('exportHeaderHeight'), 
+            t('exportHeaderDimensions'), 
             t('exportHeaderQuantity')
         ]], 
         body: exportData.map(item => [ 
-          // item[t('exportHeaderModelPrefix')], // Removed
-          // item[t('exportHeaderType')], // Removed
           item[t('exportHeaderFullModel')], 
-          item[t('exportHeaderWidth')], 
-          item[t('exportHeaderHeight')], 
+          item[t('exportHeaderDimensions')], 
           item[t('exportHeaderQuantity')]
         ]),
         startY: 20,

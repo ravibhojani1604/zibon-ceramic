@@ -85,8 +85,7 @@
   "exportHeaderModelPrefix": "Model Number Prefix",
   "exportHeaderType": "Type",
   "exportHeaderFullModel": "Full Model Number",
-  "exportHeaderWidth": "Width (in)",
-  "exportHeaderHeight": "Height (in)",
+  "exportHeaderDimensions": "Dimensions (in)",
   "exportHeaderQuantity": "Quantity",
   "excelSheetName": "Tile Inventory",
 

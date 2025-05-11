@@ -85,8 +85,7 @@
   "exportHeaderModelPrefix": "મોડેલ નંબર પ્રીફિક્સ",
   "exportHeaderType": "પ્રકાર",
   "exportHeaderFullModel": "પૂર્ણ મોડેલ નંબર",
-  "exportHeaderWidth": "પહોળાઈ (ઇંચ)",
-  "exportHeaderHeight": "ઊંચાઈ (ઇંચ)",
+  "exportHeaderDimensions": "પરિમાણો (ઇંચ)",
   "exportHeaderQuantity": "જથ્થો",
   "excelSheetName": "ટાઇલ ઇન્વેન્ટરી",
 

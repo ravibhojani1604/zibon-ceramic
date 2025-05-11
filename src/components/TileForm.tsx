@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 
-const modelNumberSuffixOptions = ["HL-1", "HL-2", "D", "F"];
+const modelNumberSuffixOptions = ["hl-1", "hl-2", "d", "f", "Custom"];
 const EMPTY_SUFFIX_VALUE = "__EMPTY_SUFFIX__"; 
 
 const tileSchema = z.object({
@@ -68,7 +68,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let foundMatch = false;
-        // Sort options by length descending to match longer suffixes first (e.g., "HL-1" before "HL")
+        // Sort options by length descending to match longer suffixes first (e.g., "hl-1" before "hl")
         const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
 
         for (const opt of sortedSuffixOptions) {
@@ -81,7 +81,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             parsedSuffix = opt;
             foundMatch = true;
             break;
-          } else if (fullMN === opt && !modelNumberSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-"))) {
+          } else if (fullMN === opt && !modelNumberSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || modelNumberSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
+            // Ensure it's not just the start of a prefix-suffix combo, or the end of another known suffix
             parsedSuffix = opt;
             foundMatch = true;
             break;

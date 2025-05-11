@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -127,22 +128,30 @@ interface TileFormProps {
   onCancelEdit: () => void;
 }
 
-const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
-  const { t } = useTranslation();
-  const isEditing = !!editingTile;
-  const tileSchema = useMemo(() => getTileSchema(t, isEditing), [t, isEditing]);
-  const [selectAllSuffixes, setSelectAllSuffixes] = useState(false);
-  
-  const defaultFormValues: Partial<TileFormData> = {
+// Helper function to create the initial default form values
+const createInitialDefaultFormValues = (): Partial<TileFormData> => {
+  const values: Partial<TileFormData> = {
     modelNumberPrefix: undefined,
     width: undefined,
     height: undefined,
     quantity: undefined, // Global quantity
   };
   suffixConfig.forEach(sf => {
-    defaultFormValues[sf.name] = false; // Suffix checkbox
-    defaultFormValues[sf.quantityName] = undefined; // Per-suffix quantity
+    values[sf.name] = false; // Suffix checkbox
+    values[sf.quantityName] = undefined; // Per-suffix quantity
   });
+  return values;
+};
+
+
+const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) => {
+  const { t } = useTranslation();
+  const isEditing = !!editingTile;
+  const tileSchema = useMemo(() => getTileSchema(t, isEditing), [t, isEditing]);
+  const [selectAllSuffixes, setSelectAllSuffixes] = useState(false);
+  
+  const defaultFormValues = useMemo(() => createInitialDefaultFormValues(), []);
+
 
   const form = useForm<TileFormData>({
     resolver: zodResolver(tileSchema),
@@ -212,9 +221,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset(resetValues);
     } else {
       form.reset(defaultFormValues);
-      setSelectAllSuffixes(false);
+      if (selectAllSuffixes) { // Only set if it's true, to avoid unnecessary re-render
+        setSelectAllSuffixes(false);
+      }
     }
-  }, [editingTile, form, defaultFormValues]); // Added defaultFormValues
+  }, [editingTile, form, defaultFormValues, selectAllSuffixes]);
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
@@ -286,7 +297,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={field.value ?? false}
                               onCheckedChange={(checked) => {
                                 if (isEditing) {
                                   if (typeof checked === 'boolean') {
@@ -437,3 +448,4 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 };
 
 export default TileForm;
+

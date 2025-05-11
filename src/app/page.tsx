@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -23,7 +24,7 @@ export default function InventoryPage() {
           const migratedTiles = parsedTiles.map(tile => ({
             id: tile.id,
             modelNumber: tile.modelNumber || 'N/A', 
-            material: tile.material || 'Unknown',
+            // material: tile.material || 'Unknown', // Removed material
             width: tile.width,
             height: tile.height,
             quantity: tile.quantity,
@@ -56,14 +57,14 @@ export default function InventoryPage() {
       }
       modelNumber += data.modelNumberSuffix;
     }
-    // If both are empty or undefined, modelNumber will be ""
+    
     if(modelNumber === "") modelNumber = "N/A";
 
 
-    const tileDisplayName = `${modelNumber} - ${data.material}`;
+    const tileDisplayName = modelNumber;
 
     const tileDataForStorage = {
-      material: data.material,
+      // material: data.material, // Removed material
       width: data.width,
       height: data.height,
       quantity: data.quantity,
@@ -114,7 +115,7 @@ export default function InventoryPage() {
       setEditingTile(null); 
     }
     if (tileToDelete){
-      const tileDisplayName = `${tileToDelete.modelNumber} - ${tileToDelete.material}`;
+      const tileDisplayName = tileToDelete.modelNumber;
       toast({
         title: "Tile Deleted",
         description: `The tile "${tileDisplayName}" has been deleted.`,

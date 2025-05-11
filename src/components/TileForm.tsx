@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -20,25 +21,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Edit3, XCircle } from "lucide-react";
 import type { Tile } from "@/types";
 
-const modelNumberSuffixOptions = ["Hl-1", "Hl-2", "d", "f"];
-const materialOptions = ["Ceramic", "Porcelain", "Stone", "Glass", "Mosaic", "Vinyl", "Other"];
-const EMPTY_SUFFIX_VALUE = "__EMPTY_SUFFIX__"; // Unique value for the "None" option in suffix select
+const modelNumberSuffixOptions = ["HL-1", "HL-2", "D", "F"];
+const EMPTY_SUFFIX_VALUE = "__EMPTY_SUFFIX__"; 
 
 const tileSchema = z.object({
   modelNumberPrefix: z.preprocess(
-    (val) => (String(val).trim() === "" ? undefined : val), // Handle empty string for optional number
+    (val) => (String(val).trim() === "" ? undefined : val), 
     z.coerce.number({ invalid_type_error: "Model prefix must be a valid number."})
       .positive({ message: "Model prefix must be a positive number if entered." })
       .optional()
   ),
   modelNumberSuffix: z.string().optional(),
-  material: z.string().nonempty({ message: "Material is required." }),
   width: z.coerce.number({invalid_type_error: "Width must be a number."}).positive({ message: "Width must be a positive number." }),
   height: z.coerce.number({invalid_type_error: "Height must be a number."}).positive({ message: "Height must be a positive number." }),
   quantity: z.coerce.number({invalid_type_error: "Quantity must be a number."}).int().min(1, { message: "Quantity must be at least 1." }),
 }).refine(data => data.modelNumberPrefix !== undefined || (data.modelNumberSuffix && data.modelNumberSuffix.length > 0), {
   message: "Either model number prefix or suffix must be provided.",
-  path: ["modelNumberPrefix"], // Attach error to prefix field for simplicity, or use a general form error display
+  path: ["modelNumberPrefix"], 
 });
 
 export type TileFormData = z.infer<typeof tileSchema>;
@@ -55,7 +54,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     defaultValues: {
       modelNumberPrefix: undefined,
       modelNumberSuffix: "",
-      material: "",
       width: undefined, 
       height: undefined,
       quantity: undefined,
@@ -70,6 +68,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let foundMatch = false;
+        // Sort options by length descending to match longer suffixes first (e.g., "HL-1" before "HL")
         const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
 
         for (const opt of sortedSuffixOptions) {
@@ -83,7 +82,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             foundMatch = true;
             break;
           } else if (fullMN === opt && !modelNumberSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-"))) {
-            // Model number is just the suffix part, and not a prefix for another suffix
             parsedSuffix = opt;
             foundMatch = true;
             break;
@@ -95,10 +93,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
           if (!isNaN(num) && String(num) === fullMN) { 
             parsedPrefix = num;
           } else {
+             // Try to extract a leading number if the full string is not a number and no suffix matched
              const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
              if (leadingNumberMatch) {
                 parsedPrefix = parseFloat(leadingNumberMatch[1]);
+                // If there's text after the number that wasn't a known suffix, it's complex.
+                // For now, we just take the prefix. Could add logic for unknown suffixes if needed.
              }
+             // If no number part can be reasonably extracted, parsedPrefix remains undefined.
           }
         }
       }
@@ -106,7 +108,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset({
         modelNumberPrefix: parsedPrefix,
         modelNumberSuffix: parsedSuffix,
-        material: editingTile.material || "",
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
@@ -115,7 +116,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset({
         modelNumberPrefix: undefined,
         modelNumberSuffix: "",
-        material: "",
         width: undefined,
         height: undefined,
         quantity: undefined,
@@ -178,7 +178,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                             field.onChange(selectedValue);
                           }
                         }} 
-                        value={field.value ?? ""}
+                        value={field.value === undefined || field.value === "" ? EMPTY_SUFFIX_VALUE : field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -204,30 +204,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               )}
             </div>
             
-            <FormField
-              control={form.control}
-              name="material"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Material</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a material" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {materialOptions.map(option => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

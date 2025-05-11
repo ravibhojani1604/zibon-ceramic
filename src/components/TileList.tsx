@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -16,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag, Palette } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Package, Edit3, Trash2, SearchX, Search, Tag } from "lucide-react"; 
 
 interface TileListProps {
   tiles: Tile[];
@@ -59,8 +60,8 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
         }
 
         return (
-          (tile.modelNumber?.toLowerCase() || '').includes(term) ||
-          (tile.material?.toLowerCase() || '').includes(term)
+          (tile.modelNumber?.toLowerCase() || '').includes(term)
+          // Removed material search: || (tile.material?.toLowerCase() || '').includes(term)
         );
       });
     });
@@ -95,11 +96,11 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
           <div className="flex items-center gap-2">
             <Search className="text-muted-foreground" />
             <Input
-              placeholder="Search by model, material, or size (e.g., A123 Ceramic 24x12)..."
+              placeholder="Search by model or size (e.g., A123 24x12)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full"
-              aria-label="Search by tile model, material, or size (widthxheight)"
+              aria-label="Search by tile model or size (widthxheight)"
             />
           </div>
         </CardHeader>
@@ -122,7 +123,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                     <CardTitle className="text-lg flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <Square className="text-primary" size={20} aria-label="Tile icon"/>
-                        {tile.modelNumber || 'N/A'} - {tile.material || 'N/A'}
+                        {tile.modelNumber || 'N/A'}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -131,10 +132,12 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       <Tag size={16} />
                       <span>Model: {tile.modelNumber || 'N/A'}</span>
                     </div>
+                    {/* Removed Material display
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Palette size={16} />
                       <span>Material: {tile.material || 'N/A'}</span>
                     </div>
+                    */}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Ruler size={16} />
                       <span>Dimensions: {`${tile.width} x ${tile.height} in`}</span>
@@ -143,7 +146,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
                       <Package size={16} />
                       <span>Quantity: {tile.quantity}</span>
                     </div>
-                    <div className="sm:col-span-2 flex justify-end space-x-2 mt-2">
+                     <div className="sm:col-span-2 flex justify-end space-x-2 mt-2 sm:mt-0"> {/* Adjusted mt for consistent spacing */}
                       <Button variant="outline" size="sm" onClick={() => onEditTile(tile)}>
                         <Edit3 className="mr-1 h-4 w-4" /> Edit
                       </Button>
@@ -165,7 +168,7 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the tile
-              "{tileToDelete?.modelNumber || 'N/A'} - {tileToDelete?.material || 'N/A'}" from your inventory.
+              "{tileToDelete?.modelNumber || 'N/A'}" from your inventory.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

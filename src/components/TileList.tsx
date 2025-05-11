@@ -98,13 +98,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
     setItemToDelete(null);
   };
   
-  const getExportableData = () => {
+  const getExportableData = useCallback(() => {
     const dataToExport: any[] = [];
     filteredGroupedTiles.forEach(group => {
       group.variants.forEach(variant => {
         dataToExport.push({
-          [t('exportHeaderModelPrefix')]: group.modelNumberPrefix === "N/A" ? '-' : group.modelNumberPrefix,
-          [t('exportHeaderType')]: variant.typeSuffix === t('noTypeSuffix') || variant.typeSuffix === "N/A" ? '-' : variant.typeSuffix,
           [t('exportHeaderFullModel')]: variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
                                 ? `${group.modelNumberPrefix}-${variant.typeSuffix}` 
                                 : (group.modelNumberPrefix === "N/A" && variant.typeSuffix && variant.typeSuffix !== "N/A" && variant.typeSuffix !== t('noTypeSuffix') ? variant.typeSuffix : group.modelNumberPrefix),
@@ -115,7 +113,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
       });
     });
     return dataToExport;
-  };
+  }, [filteredGroupedTiles, t]);
 
 
   const handleExportPDF = async () => {
@@ -131,16 +129,16 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
       const doc = new jsPDF();
       autoTable(doc, {
         head: [[
-            t('exportHeaderModelPrefix'), 
-            t('exportHeaderType'), 
+            // t('exportHeaderModelPrefix'), // Removed
+            // t('exportHeaderType'), // Removed
             t('exportHeaderFullModel'), 
             t('exportHeaderWidth'), 
             t('exportHeaderHeight'), 
             t('exportHeaderQuantity')
         ]], 
         body: exportData.map(item => [ 
-          item[t('exportHeaderModelPrefix')], 
-          item[t('exportHeaderType')], 
+          // item[t('exportHeaderModelPrefix')], // Removed
+          // item[t('exportHeaderType')], // Removed
           item[t('exportHeaderFullModel')], 
           item[t('exportHeaderWidth')], 
           item[t('exportHeaderHeight')], 
@@ -348,3 +346,4 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+

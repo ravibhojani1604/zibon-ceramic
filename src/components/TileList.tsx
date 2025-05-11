@@ -257,11 +257,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                       </div>
                     ))}
                   </CardContent>
-                   <CardFooter className="pt-3 border-t flex justify-end space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => onEditGroup(group)}>
+                   <CardFooter className="pt-3 border-t flex flex-col gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => onEditGroup(group)} className="w-full sm:w-auto">
                         <Edit className="mr-1 h-4 w-4" /> {t('editGroupButton')}
                       </Button>
-                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteGroupClick(group)}>
+                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteGroupClick(group)} className="w-full sm:w-auto">
                         <Trash className="mr-1 h-4 w-4" /> {t('deleteGroupButton')}
                       </Button>
                   </CardFooter>
@@ -339,5 +339,6 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+
 
 

@@ -26,9 +26,7 @@ interface TileListProps {
 }
 
 const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
-  const [searchTermType, setSearchTermType] = useState('');
-  const [searchTermWidth, setSearchTermWidth] = useState('');
-  const [searchTermHeight, setSearchTermHeight] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tileToDelete, setTileToDelete] = useState<Tile | null>(null);
 
@@ -37,18 +35,36 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
   }, [tiles]);
 
   const filteredTiles = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return tiles;
+    }
+
+    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+
     return tiles.filter(tile => {
-      const typeMatch = searchTermType === '' || tile.type.toLowerCase().includes(searchTermType.toLowerCase());
-      
-      const searchWidthNum = parseFloat(searchTermWidth);
-      const widthMatch = searchTermWidth === '' || Number.isNaN(searchWidthNum) ? true : tile.width === searchWidthNum;
-      
-      const searchHeightNum = parseFloat(searchTermHeight);
-      const heightMatch = searchTermHeight === '' || Number.isNaN(searchHeightNum) ? true : tile.height === searchHeightNum;
-      
-      return typeMatch && widthMatch && heightMatch;
+      return searchTerms.every(term => {
+        // Check for size match (e.g., "24x12")
+        const sizeMatch = term.match(/^(\d*\.?\d*)x(\d*\.?\d*)$/i);
+        if (sizeMatch) {
+          const searchWidth = parseFloat(sizeMatch[1]);
+          const searchHeight = parseFloat(sizeMatch[2]);
+          let widthMatches = true;
+          let heightMatches = true;
+
+          if (!Number.isNaN(searchWidth) && sizeMatch[1] !== '') {
+            widthMatches = tile.width === searchWidth;
+          }
+          if (!Number.isNaN(searchHeight) && sizeMatch[2] !== '') {
+            heightMatches = tile.height === searchHeight;
+          }
+          return widthMatches && heightMatches;
+        }
+
+        // Check for type match
+        return tile.type.toLowerCase().includes(term);
+      });
     });
-  }, [tiles, searchTermType, searchTermWidth, searchTermHeight]);
+  }, [tiles, searchTerm]);
 
   const handleDeleteClick = (tile: Tile) => {
     setTileToDelete(tile);
@@ -67,38 +83,23 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
     <>
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
             <CardTitle className="text-xl flex items-center gap-2">
               <Archive className="text-primary" />
               Current Inventory
             </CardTitle>
-            <div className="text-lg font-semibold">
+            <div className="text-lg font-semibold text-right sm:text-left w-full sm:w-auto">
               Total Tiles: <span className="text-primary">{totalQuantity}</span>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <Search className="text-muted-foreground" />
             <Input
-              placeholder="Search by type..."
-              value={searchTermType}
-              onChange={(e) => setSearchTermType(e.target.value)}
+              placeholder="Search by type or size (e.g., Ceramic 24x12)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full"
-              aria-label="Search by tile type"
-            />
-            <Input
-              type="number"
-              placeholder="Width (in)"
-              value={searchTermWidth}
-              onChange={(e) => setSearchTermWidth(e.target.value)}
-              className="w-full"
-              aria-label="Search by tile width in inches"
-            />
-            <Input
-              type="number"
-              placeholder="Height (in)"
-              value={searchTermHeight}
-              onChange={(e) => setSearchTermHeight(e.target.value)}
-              className="w-full"
-              aria-label="Search by tile height in inches"
+              aria-label="Search by tile type or size (widthxheight)"
             />
           </div>
         </CardHeader>
@@ -172,4 +173,3 @@ const TileList: FC<TileListProps> = ({ tiles, onEditTile, onDeleteTile }) => {
 };
 
 export default TileList;
-

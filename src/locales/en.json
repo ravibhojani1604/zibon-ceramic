@@ -44,7 +44,12 @@
     "registerFailedTitle": "Registration Failed",
     "logoutSuccessTitle": "Logged Out",
     "logoutSuccessDescription": "You have been successfully logged out.",
-    "logoutFailedTitle": "Logout Failed"
+    "logoutFailedTitle": "Logout Failed",
+    "errorInvalidCredential": "Invalid email or password. Please try again.",
+    "errorUserDisabled": "This account has been disabled. Please contact support.",
+    "errorInvalidEmail": "The email address is not valid. Please check and try again.",
+    "errorEmailInUse": "This email is already registered. Please login or use a different email.",
+    "errorWeakPassword": "The password is too weak. Please choose a stronger password."
   },
 
   "errorMessages": {

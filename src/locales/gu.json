@@ -44,7 +44,12 @@
     "registerFailedTitle": "નોંધણી નિષ્ફળ",
     "logoutSuccessTitle": "લૉગઆઉટ સફળ",
     "logoutSuccessDescription": "તમે સફળતાપૂર્વક લૉગઆઉટ થયા છો.",
-    "logoutFailedTitle": "લૉગઆઉટ નિષ્ફળ"
+    "logoutFailedTitle": "લૉગઆઉટ નિષ્ફળ",
+    "errorInvalidCredential": "અમાન્ય ઇમેઇલ અથવા પાસવર્ડ. કૃપા કરીને ફરી પ્રયાસ કરો.",
+    "errorUserDisabled": "આ એકાઉન્ટ નિષ્ક્રિય કરવામાં આવ્યું છે. કૃપા કરીને સપોર્ટનો સંપર્ક કરો.",
+    "errorInvalidEmail": "ઇમેઇલ સરનામું માન્ય નથી. કૃપા કરીને તપાસો અને ફરી પ્રયાસ કરો.",
+    "errorEmailInUse": "આ ઇમેઇલ પહેલેથી જ રજીસ્ટર થયેલ છે. કૃપા કરીને લૉગિન કરો અથવા અલગ ઇમેઇલનો ઉપયોગ કરો.",
+    "errorWeakPassword": "પાસવર્ડ ખૂબ નબળો છે. કૃપા કરીને વધુ મજબૂત પાસવર્ડ પસંદ કરો."
   },
 
   "errorMessages": {

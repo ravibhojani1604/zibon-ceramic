@@ -11,6 +11,40 @@
   "themeDark": "ઘેરો",
   "themeSystem": "સિસ્ટમ",
 
+  "auth": {
+    "loginTitle": "ઝિબોન સિરામિકમાં લોગિન કરો",
+    "registerTitle": "એકાઉન્ટ બનાવો",
+    "emailLabel": "ઇમેઇલ",
+    "emailPlaceholder": "tamaro@example.com",
+    "passwordLabel": "પાસવર્ડ",
+    "passwordPlaceholder": "••••••••",
+    "loginButton": "લોગિન કરો",
+    "registerButton": "રજીસ્ટર કરો",
+    "orContinueWith": "અથવા આની સાથે ચાલુ રાખો",
+    "googleLoginButton": "Google વડે લોગિન કરો",
+    "githubLoginButton": "GitHub વડે લોગિન કરો",
+    "noAccount": "શું તમારી પાસે એકાઉન્ટ નથી?",
+    "alreadyAccount": "શું તમારી પાસે પહેલેથી એકાઉન્ટ છે?",
+    "signUpLink": "સાઇન અપ કરો",
+    "signInLink": "સાઇન ઇન કરો",
+    "logoutButton": "લોગઆઉટ",
+    "logoutSuccessTitle": "લોગઆઉટ સફળ",
+    "logoutSuccessMessage": "તમે સફળતાપૂર્વક લોગઆઉટ થયા છો.",
+    "logoutErrorTitle": "લોગઆઉટ નિષ્ફળ",
+    "logoutErrorMessage": "લોગઆઉટ કરી શકાયું નથી. કૃપા કરીને ફરી પ્રયાસ કરો.",
+    "loginErrorTitle": "લોગિન નિષ્ફળ",
+    "registerErrorTitle": "નોંધણી નિષ્ફળ"
+  },
+
+  "errorMessages": {
+    "fetchErrorTitle": "ડેટા લાવવામાં ભૂલ",
+    "fetchErrorDescription": "ટાઇલ ડેટા લોડ કરી શકાયો નથી. કૃપા કરીને તમારું કનેક્શન તપાસો અથવા પછીથી ફરી પ્રયાસ કરો.",
+    "emailRequired": "ઇમેઇલ જરૂરી છે.",
+    "emailInvalid": "અમાન્ય ઇમેઇલ સરનામું.",
+    "passwordRequired": "પાસવર્ડ જરૂરી છે.",
+    "passwordMinLength": "પાસવર્ડ ઓછામાં ઓછો 6 અક્ષરોનો હોવો જોઈએ."
+  },
+
   "tileFormCardTitleAdd": "નવી ટાઇલ ઉમેરો",
   "tileFormCardTitleEdit": "ટાઇલ સંપાદિત કરો",
   "modelNumberLabel": "મોડેલ નંબર",

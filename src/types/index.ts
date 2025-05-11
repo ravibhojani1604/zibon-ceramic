@@ -2,8 +2,8 @@
 export interface Tile {
   id: string;
   modelNumber: string;
-  // material: string; // Removed material
   width: number;
   height: number;
   quantity: number;
+  createdAt?: Date; // Optional: for sorting or tracking creation time
 }

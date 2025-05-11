@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -253,7 +254,7 @@ export default function InventoryPage() {
       toast({
         title: t('toastTileDeletedTitle'),
         description: t('toastTileDeletedDescription', { modelNumber: tileDisplayName }),
-        variant: "destructive", // Consider "default" or a custom success variant for non-error deletions
+        variant: "destructive", 
       });
     } catch (error) {
       console.error("Error deleting tile:", error);
@@ -308,11 +309,11 @@ export default function InventoryPage() {
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
-              setEditingTile(null); // Also clear editingTile when dialog is closed
+              setEditingTile(null); 
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 {isEditingForm ? <Edit3 className="text-primary" /> : <PlusCircle className="text-primary" />}
@@ -325,7 +326,7 @@ export default function InventoryPage() {
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
-              onCancelEdit={handleCancelEditOnForm} // Pass the cancel handler
+              onCancelEdit={handleCancelEditOnForm} 
             />
           </DialogContent>
         </Dialog>
@@ -364,3 +365,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    

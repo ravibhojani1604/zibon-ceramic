@@ -14,6 +14,7 @@ const firebaseConfig = {
   projectId: "zibon-ceramic",
   storageBucket: "zibon-ceramic.appspot.com", // Corrected format
   messagingSenderId: "758308365599",
+ // Removed authDomain: "zibon-ceramic.firebaseapp.com",
   appId: "1:758308365599:web:ea5eee0961d260002a3c2a",
   measurementId: "G-5SG9ZV3YRY"
 };
@@ -22,43 +23,34 @@ let appInstance: FirebaseApp | undefined;
 let authInstance: Auth | undefined; // Kept for potential full initialization scope
 let dbInstance: Firestore | undefined;
 
-let initializationPromise: Promise<void> = Promise.resolve(); // Default to resolved
-
-if (typeof window !== 'undefined') { // Ensure Firebase is initialized only on the client-side
-  if (!getApps().length) {
-    try {
-      appInstance = initializeApp(firebaseConfig);
-      // Initialize Auth and Firestore only if app initialized successfully
-      authInstance = getAuth(appInstance); 
-      dbInstance = getFirestore(appInstance);
-      initializationPromise = Promise.resolve();
-      console.log("Firebase initialized successfully.");
-    } catch (error: any) {
-      console.error("Firebase initialization error:", error.message, error.code);
-      initializationPromise = Promise.reject(error);
-      // Instances will remain undefined
-    }
-  } else {
-    try {
-      appInstance = getApp();
-      authInstance = getAuth(appInstance); 
-      dbInstance = getFirestore(appInstance);
-      initializationPromise = Promise.resolve();
-      console.log("Firebase app already initialized.");
-    } catch (error: any) {
-        console.error("Error getting existing Firebase app/services:", error.message);
-        initializationPromise = Promise.reject(error);
-    }
+const initializationPromise: Promise<{ app: FirebaseApp | undefined, auth: Auth | undefined, db: Firestore | undefined }> = (async () => {
+  if (typeof window === 'undefined') {
+    // On the server, instances will be undefined
+    return { app: undefined, auth: undefined, db: undefined };
   }
-} else {
-  // On the server, these instances will be undefined.
-  // Resolve the promise, but instances will be undefined until client-side init.
-  initializationPromise = Promise.resolve();
-}
 
-export const ensureFirebaseInitialized = (): Promise<void> => {
+  try {
+    let app: FirebaseApp;
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+      console.log("Firebase initialized successfully.");
+    } else {
+      app = getApp();
+      console.log("Firebase app already initialized.");
+    }
+
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    return { app, auth, db };
+
+  } catch (error: any) {
+    console.error("Firebase initialization error:", error.message, error.code);
+    // Return undefined instances on error
+    return { app: undefined, auth: undefined, db: undefined };
+  }
+})();
+
+export const getFirebaseInstances = (): Promise<{ app: FirebaseApp | undefined, auth: Auth | undefined, db: Firestore | undefined }> => {
   return initializationPromise;
 };
-
-// Export instances that might be undefined if initialization fails or on server.
-export { appInstance as app, authInstance as auth, dbInstance as db };

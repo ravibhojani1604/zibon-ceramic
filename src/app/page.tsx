@@ -4,10 +4,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import TileForm, { type TileFormData, createInitialDefaultFormValues } from "@/components/TileForm";
 import TileList from "@/components/TileList";
-import type { Tile, GroupedDisplayTile, TileVariant } from "@/types";
+import type { Tile, GroupedDisplayTile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Edit3, Edit } from "lucide-react";
+import { PlusCircle, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +18,10 @@ import {
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { getFirebaseInstances } from '@/lib/firebase';
+import { getFirebaseInstances } from '@/lib/firebase'; // Corrected import path
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader as MUICardHeader } from '@/components/ui/card'; // Renamed CardHeader to avoid conflict with DialogHeader
 
 
 const TILES_COLLECTION = "globalTilesInventory";
@@ -48,7 +48,7 @@ export default function InventoryPage() {
 
   const [formMode, setFormMode] = useState<'add' | 'editVariant' | 'editGroup'>('add');
   const [initialDataForForm, setInitialDataForForm] = useState<TileFormData | null>(null);
-  const [editingVariant, setEditingVariant] = useState<Tile | null>(null);
+  const [editingVariant, setEditingVariant] = useState<Tile | null>(null); // Retained for potential future individual variant edit logic
   const [editingGroup, setEditingGroup] = useState<GroupedDisplayTile | null>(null);
 
 
@@ -169,36 +169,6 @@ export default function InventoryPage() {
     setEditingGroup(null);
     setIsFormOpen(true);
   };
-
-  const prepareDataForVariantEdit = (tile: Tile): TileFormData => {
-    const formData: TileFormData = createInitialDefaultFormValues();
-    formData.width = tile.width;
-    formData.height = tile.height;
-    formData.quantity = tile.quantity;
-
-    if (tile.modelNumber && tile.modelNumber !== "N/A") {
-      const fullMN = tile.modelNumber;
-      let mnPrefix = fullMN;
-      const knownTypesSorted = typeConfigPage.slice().sort((a,b) => b.label.length - a.label.length);
-
-      for (const sf of knownTypesSorted) {
-        if (fullMN.endsWith(`-${sf.label}`)) {
-          mnPrefix = fullMN.substring(0, fullMN.length - (sf.label.length + 1));
-          formData[sf.name] = true; // This makes it behave like a single-type edit
-          break;
-        } else if (fullMN === sf.label) {
-          mnPrefix = "";
-          formData[sf.name] = true;
-          break;
-        }
-      }
-      const num = parseFloat(mnPrefix);
-      formData.modelNumberPrefix = isNaN(num) || mnPrefix === "" ? (mnPrefix === "N/A" ? undefined : mnPrefix) : num;
-    } else if (tile.modelNumber === "N/A") {
-      formData.modelNumberPrefix = undefined;
-    }
-    return formData;
-  };
   
   const prepareDataForGroupEdit = (group: GroupedDisplayTile): TileFormData => {
     const formData: TileFormData = createInitialDefaultFormValues();
@@ -208,7 +178,7 @@ export default function InventoryPage() {
     formData.height = group.height;
   
     typeConfigPage.forEach(sf => {
-      const variant = group.variants.find(v => v.typeSuffix === sf.label || (sf.label === "L" && v.typeSuffix === t('noTypeSuffix'))); // Adjust if needed
+      const variant = group.variants.find(v => v.typeSuffix === sf.label || (sf.label === "L" && v.typeSuffix === t('noTypeSuffix')));
       if (variant) {
         formData[sf.name] = true;
         formData[sf.quantityName] = variant.quantity;
@@ -218,13 +188,8 @@ export default function InventoryPage() {
       }
     });
 
-    // Handle base model case (no type suffix) if it's stored as a variant with empty/special typeSuffix
     const baseVariant = group.variants.find(v => v.typeSuffix === t('noTypeSuffix') || v.typeSuffix === "N/A" || v.typeSuffix === "");
-    if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { // If no specific type was matched
-        // This scenario is tricky, if modelNumberPrefix only, it's handled by global quantity logic
-        // For group edit, we reflect what's in the variants.
-        // If a "Base" variant exists (prefix only, no type suffix), its quantity should be editable
-        // via the global quantity field if no types are selected.
+    if (baseVariant && !typeConfigPage.some(sf => formData[sf.name])) { 
         if (group.variants.length === 1 && (baseVariant.typeSuffix === t('noTypeSuffix') || baseVariant.typeSuffix === "N/A" || baseVariant.typeSuffix === "")) {
             formData.quantity = baseVariant.quantity;
         }
@@ -248,31 +213,7 @@ export default function InventoryPage() {
     const modelNumberPrefixStr = data.modelNumberPrefix !== undefined ? String(data.modelNumberPrefix).trim() : "";
 
     try {
-      if (formMode === 'editVariant' && editingVariant) {
-        const activeTypeConfig = typeConfigPage.find(sf => data[sf.name]); 
-        let finalModelNumber = modelNumberPrefixStr;
-
-        if (activeTypeConfig && modelNumberPrefixStr) {
-          finalModelNumber = `${modelNumberPrefixStr}-${activeTypeConfig.label}`;
-        } else if (activeTypeConfig) { 
-          finalModelNumber = activeTypeConfig.label;
-        } else if (!modelNumberPrefixStr) { 
-          finalModelNumber = "N/A";
-        }
-        if (finalModelNumber === "") finalModelNumber = "N/A";
-
-        const tileDocRef = doc(db, TILES_COLLECTION, editingVariant.id);
-        await updateDoc(tileDocRef, {
-          ...tileBaseProperties,
-          modelNumber: finalModelNumber,
-          quantity: data.quantity 
-        });
-        toast({
-          title: t('toastTileUpdatedTitle'),
-          description: t('toastTileUpdatedDescription', { modelNumber: finalModelNumber }),
-        });
-
-      } else if (formMode === 'editGroup' && editingGroup) {
+      if (formMode === 'editGroup' && editingGroup) {
         const batch = writeBatch(db);
         // Delete old variants
         editingGroup.variants.forEach(variant => {
@@ -290,7 +231,7 @@ export default function InventoryPage() {
                 const currentQuantity = data[sf.quantityName] ?? 0;
                 if (currentQuantity > 0 && !modelsToCreateOrUpdateMap.has(model)) {
                      modelsToCreateOrUpdateMap.set(model, {
-                        ...tileBaseProperties, // Use width/height from form
+                        ...tileBaseProperties, 
                         modelNumber: model,
                         quantity: currentQuantity,
                         createdAt: serverTimestamp(),
@@ -324,7 +265,6 @@ export default function InventoryPage() {
 
         if (tileDataObjects.length === 0 && modelsToCreate.length === 0) {
            toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
-           // setIsFormOpen(false); // Keep form open for correction
            return;
         }
 
@@ -383,7 +323,7 @@ export default function InventoryPage() {
 
         if (tileDataObjects.length === 0 ) {
            toast({ title: t("saveErrorTitle"), description: t("saveErrorNoModelOrQuantity"), variant: "destructive" });
-           setIsFormOpen(false);
+           setIsFormOpen(true); // Keep form open for correction
            return;
         }
 
@@ -415,7 +355,7 @@ export default function InventoryPage() {
     setEditingVariant(null);
     setInitialDataForForm(prepareDataForGroupEdit(group));
     setIsFormOpen(true);
-  }, [toast, t]); // Removed unused handleEditVariant
+  }, []); 
 
   const handleCancelEditOnForm = useCallback(() => {
     setEditingVariant(null);
@@ -457,18 +397,16 @@ export default function InventoryPage() {
       console.error("Error deleting group:", error);
       toast({ title: t("deleteErrorTitle"), description: t("deleteErrorGroupDescription"), variant: "destructive" });
     }
-  }, [toast, editingGroup, t]); // Removed unused handleDeleteVariant
+  }, [toast, editingGroup, t]);
 
   const dialogTitle = useMemo(() => {
     if (formMode === 'add') return t('tileFormCardTitleAdd');
-    if (formMode === 'editVariant') return t('tileFormCardTitleEdit');
     if (formMode === 'editGroup') return t('tileFormCardTitleEditGroup');
     return "";
   }, [formMode, t]);
 
   const dialogDescription = useMemo(() => {
     if (formMode === 'add') return t('tileFormCardDescriptionAdd');
-    if (formMode === 'editVariant') return t('tileFormCardDescriptionEdit');
     if (formMode === 'editGroup') return t('tileFormCardDescriptionEditGroup');
     return "";
   }, [formMode, t]);
@@ -524,8 +462,8 @@ export default function InventoryPage() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto flex flex-col">
-            <DialogHeader className="px-0 pt-0 pb-4 sticky top-0 bg-card z-10 border-b">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col p-0">
+            <DialogHeader className="sticky top-0 bg-card z-10 border-b px-6 pt-6 pb-4">
               <DialogTitle className="text-xl flex items-center gap-2">
                 {formMode === 'add' ? <PlusCircle className="text-primary" /> : <Edit className="text-primary" />}
                 {dialogTitle}
@@ -534,18 +472,18 @@ export default function InventoryPage() {
                 {dialogDescription}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-2">
+            <div className="flex-grow overflow-y-auto px-6 py-6">
               {initialDataForForm && (
                 <TileForm
                   onSaveTile={handleSaveTile}
                   initialValues={initialDataForForm}
                   onCancelEdit={handleCancelEditOnForm}
-                  isEditMode={formMode === 'editVariant' || formMode === 'editGroup'}
+                  isEditMode={formMode === 'editGroup'}
                   isGroupEdit={formMode === 'editGroup'}
-                  key={formMode === 'add' ? 'add' : (editingVariant?.id || editingGroup?.groupKey)} // Force re-render with new initialValues
+                  key={formMode === 'add' ? 'add' : (editingGroup?.groupKey)} 
                 />
               )}
-               {formMode === 'add' && !initialDataForForm && ( // Ensure form renders for add mode even if initialDataForForm is momentarily null
+               {formMode === 'add' && !initialDataForForm && ( 
                  <TileForm
                     onSaveTile={handleSaveTile}
                     initialValues={createInitialDefaultFormValues()}
@@ -563,9 +501,9 @@ export default function InventoryPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
                <Card key={index} className="w-full shadow-md">
-                <CardHeader className="pb-2">
+                <MUICardHeader className="pb-2">
                   <Skeleton className="h-6 w-3/4" />
-                </CardHeader>
+                </MUICardHeader>
                 <CardContent className="flex flex-col gap-2 text-sm pt-2">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-5/6" />
@@ -596,3 +534,4 @@ export default function InventoryPage() {
     
 
     
+

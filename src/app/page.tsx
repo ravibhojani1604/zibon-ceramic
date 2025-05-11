@@ -62,7 +62,7 @@ export default function InventoryPage() {
               <path d="M14 14h7v7h-7z" />
             </svg>
           <h1 className="text-3xl font-bold text-primary tracking-tight">
-            Tile Inventory Tracker
+            Zibon Ceramic
           </h1>
         </div>
       </header>
@@ -79,7 +79,7 @@ export default function InventoryPage() {
       </main>
 
       <footer className="py-6 mt-auto text-center text-sm text-muted-foreground border-t border-border bg-card">
-        <p>© {isClient ? new Date().getFullYear() : '...'} Tile Inventory Tracker. All rights reserved.</p>
+        <p>© {isClient ? new Date().getFullYear() : '...'} Zibon Ceramic. All rights reserved.</p>
       </footer>
     </div>
   );

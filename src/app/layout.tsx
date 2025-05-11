@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({ // Corrected usage
 });
 
 export const metadata: Metadata = {
-  title: 'Tile Inventory Tracker', // Updated title
-  description: 'Track your tile inventory in real-time.', // Updated description
+  title: 'Zibon Ceramic', // Updated title
+  description: 'Track your tile inventory with Zibon Ceramic.', // Updated description
 };
 
 export default function RootLayout({

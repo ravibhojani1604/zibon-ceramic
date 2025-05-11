@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -190,16 +189,14 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, initialValues, onCancelEdit, 
 
 
   useEffect(() => {
-    form.reset(initialValues); // Reset form with new initial values when they change
-    // For add mode or group edit mode, evaluate selectAllTypes based on initialValues
+    form.reset(initialValues); 
     if (!isEditMode || isGroupEdit) {
         const allChecked = typeConfig.every(sf => !!form.getValues(sf.name));
         setSelectAllTypes(allChecked);
-    } else { // For single variant edit mode, selectAllTypes is not applicable
+    } else { 
         setSelectAllTypes(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues, form]); // form.reset will update internal state
+  }, [initialValues, form, isEditMode, isGroupEdit]);
 
 
   const onSubmit = (data: TileFormData) => {
@@ -460,3 +457,4 @@ export default TileForm;
     
 
     
+

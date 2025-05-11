@@ -1,8 +1,7 @@
-
 "use client";
 
 import type { FC } from 'react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,7 +54,6 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
     quantity: z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }).optional(), // Global quantity
   };
 
-  // Add suffix booleans and individual quantity fields to the schema object
   suffixConfig.forEach(sf => {
     (baseObjectSchema as any)[sf.name] = z.boolean().optional();
     (baseObjectSchema as any)[sf.quantityName] = z.coerce.number({invalid_type_error: t("quantityRequiredError")}).int().min(1, { message: t("quantityMinError") }).optional();
@@ -63,32 +61,33 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
   
   return z.object(baseObjectSchema).superRefine((data, ctx) => {
     const checkedSuffixesFromData = suffixConfig.filter(sf => data[sf.name]);
+    const prefixIsProvided = data.modelNumberPrefix !== undefined;
 
     if (isEditing) {
+      // Edit Mode Validation
       if (data.quantity === undefined || data.quantity <= 0) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
       }
       if (checkedSuffixesFromData.length > 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("editModeSingleSuffixError"), path: ["modelNumberPrefix"] }); // General path for simplicity
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("editModeSingleSuffixError"), path: ["modelNumberPrefix"] }); 
       }
-       if (checkedSuffixesFromData.length === 0 && data.modelNumberPrefix === undefined) {
+      if (checkedSuffixesFromData.length === 0 && !prefixIsProvided) {
          ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
-       }
-    } else { // Adding new tile(s)
-      if (checkedSuffixesFromData.length === 0) {
-        // No suffixes checked. If prefix is provided, global quantity is required. If prefix is also not provided, specific error.
-        if (data.modelNumberPrefix !== undefined && (data.quantity === undefined || data.quantity <= 0) ) {
-           ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
-        } else if (data.modelNumberPrefix === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
-        }
-      } else if (checkedSuffixesFromData.length === 1) {
-        // One suffix checked, global quantity required
+      }
+    } else { 
+      // Add New Tile(s) Mode Validation
+      const anySuffixChecked = checkedSuffixesFromData.length > 0;
+
+      if (!prefixIsProvided && !anySuffixChecked) {
+        // Case: Nothing entered (no prefix, no suffix checked)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("modelNumberRequiredError"), path: ["modelNumberPrefix"] });
+      } else if (prefixIsProvided && !anySuffixChecked) {
+        // Case: Only prefix provided, no suffixes checked. Global quantity is required.
         if (data.quantity === undefined || data.quantity <= 0) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: t("quantityRequiredError"), path: ["quantity"] });
         }
-      } else { // Multiple suffixes checked
-        // Per-suffix quantities are required
+      } else if (anySuffixChecked) {
+        // Case: One or more suffixes are checked. Per-suffix quantities are required for *all* checked suffixes.
         for (const sf of checkedSuffixesFromData) {
           if (data[sf.quantityName] === undefined || Number(data[sf.quantityName]) <= 0) {
             ctx.addIssue({
@@ -101,22 +100,21 @@ const getTileSchema = (t: (key: string, options?: Record<string, string | number
       }
     }
 
-    // Common validation for model number prefix and HL suffixes
-    const prefixProvided = data.modelNumberPrefix !== undefined;
-    if ( (data.suffix_HL1 || data.suffix_HL2 || data.suffix_HL4 || data.suffix_HL5) && !prefixProvided ) {
+    // Common validation for HL suffixes needing a prefix (applies to both add and edit)
+    if ( (data.suffix_HL1 || data.suffix_HL2 || data.suffix_HL4 || data.suffix_HL5) && !prefixIsProvided ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: t("modelNumberPrefixRequiredWithHL"),
         path: ["modelNumberPrefix"],
       });
     }
-  }).refine(data => {
+  }).refine(data => { // Ensures at least one part of model number is present
       const prefixProvided = data.modelNumberPrefix !== undefined;
       const anySuffixChecked = suffixConfig.some(sf => data[sf.name]);
       return prefixProvided || anySuffixChecked;
   }, {
       message: t("modelNumberRequiredError"),
-      path: ["modelNumberPrefix"],
+      path: ["modelNumberPrefix"], 
   });
 };
 
@@ -139,11 +137,11 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     modelNumberPrefix: undefined,
     width: undefined,
     height: undefined,
-    quantity: undefined,
+    quantity: undefined, // Global quantity
   };
   suffixConfig.forEach(sf => {
-    defaultFormValues[sf.name] = false;
-    defaultFormValues[sf.quantityName] = undefined;
+    defaultFormValues[sf.name] = false; // Suffix checkbox
+    defaultFormValues[sf.quantityName] = undefined; // Per-suffix quantity
   });
 
   const form = useForm<TileFormData>({
@@ -153,8 +151,10 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 
   const watchedSuffixes = suffixConfig.map(sf => form.watch(sf.name));
   const checkedSuffixCount = useMemo(() => watchedSuffixes.filter(Boolean).length, [watchedSuffixes]);
-  
-  const showGlobalQuantity = isEditing || checkedSuffixCount <= 1;
+  const watchedModelNumberPrefix = form.watch('modelNumberPrefix');
+
+  // Determine when to show the global quantity field
+  const showGlobalQuantityField = isEditing || (checkedSuffixCount === 0 && watchedModelNumberPrefix !== undefined);
 
   useEffect(() => {
     if (!isEditing) {
@@ -163,7 +163,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
         setSelectAllSuffixes(allChecked);
       }
     }
-  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]); // Added selectAllSuffixes dependency
+  }, [watchedSuffixes, isEditing, form, selectAllSuffixes]); 
 
   useEffect(() => {
     if (editingTile) {
@@ -171,27 +171,26 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       const resetValues: Partial<TileFormData> = {
         width: editingTile.width,
         height: editingTile.height,
-        quantity: editingTile.quantity,
+        quantity: editingTile.quantity, // Use global quantity for editing
       };
       suffixConfig.forEach(sf => {
         resetValues[sf.name] = false;
-        resetValues[sf.quantityName] = undefined;
+        resetValues[sf.quantityName] = undefined; // Per-suffix quantities not used in edit mode's form
       });
 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let mnRemainder = fullMN;
-        let prefixStr = "";
 
         const matchedSuffixConf = suffixConfig
-          .sort((a,b) => b.label.length - a.label.length) // Longer suffixes first
+          .sort((a,b) => b.label.length - a.label.length) 
           .find(sf => fullMN.endsWith("-" + sf.label) || fullMN === sf.label);
 
         if (matchedSuffixConf) {
             resetValues[matchedSuffixConf.name] = true;
             if (fullMN.endsWith("-" + matchedSuffixConf.label)) {
                  mnRemainder = fullMN.substring(0, fullMN.length - (matchedSuffixConf.label.length + 1));
-            } else { // fullMN === sf.label
+            } else { 
                  mnRemainder = "";
             }
         }
@@ -201,9 +200,6 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             if (!isNaN(num) && String(num) === mnRemainder) { 
                  resetValues.modelNumberPrefix = num;
             } else {
-                // If remainder is not a number, it might be a prefixless model or error in data
-                // For now, if a suffix was matched, we assume remainder is prefix.
-                // If no suffix matched, fullMN is the prefix (if numeric)
                 if(!matchedSuffixConf) {
                     const numPrefix = parseFloat(fullMN);
                     if (!isNaN(numPrefix) && String(numPrefix) === fullMN) {
@@ -218,7 +214,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       form.reset(defaultFormValues);
       setSelectAllSuffixes(false);
     }
-  }, [editingTile, form]); 
+  }, [editingTile, form, defaultFormValues]); // Added defaultFormValues
 
   const onSubmit = (data: TileFormData) => {
     onSaveTile(data, editingTile?.id);
@@ -310,7 +306,8 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                         </FormItem>
                       )}
                     />
-                    {!showGlobalQuantity && form.getValues(sf.name) && !isEditing && (
+                    {/* Show per-suffix quantity if !isEditing and this suffix is checked */}
+                    {!isEditing && form.watch(sf.name) && (
                       <FormField
                         control={form.control}
                         name={sf.quantityName}
@@ -336,7 +333,12 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                   </div>
                 ))}
               </div>
-              {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && (
+              {/* Display model number related errors that might not be tied to a single field if prefix is involved */}
+              {(form.formState.errors.modelNumberPrefix?.message === t("modelNumberRequiredError") || 
+               form.formState.errors.modelNumberPrefix?.message === t("modelNumberPrefixRequiredWithHL")) && 
+               !form.formState.dirtyFields.modelNumberPrefix && // Show only if not specific to prefix field input
+                 Object.values(form.formState.errors).every(err => err?.type !== 'invalid_type' && err?.type !== 'too_small') // Avoid double messaging
+                 && (
                  <p className="text-sm font-medium text-destructive pt-1">{form.formState.errors.modelNumberPrefix.message}</p>
               )}
           </div>
@@ -383,8 +385,9 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               )}
             />
           </div>
-
-          {showGlobalQuantity && (
+          
+          {/* Show global quantity field if in edit mode, OR (not editing AND no suffixes checked AND prefix is provided) */}
+          {showGlobalQuantityField && (
             <FormField
               control={form.control}
               name="quantity"
@@ -415,10 +418,16 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
               {isEditing ? t('updateTileButton') : t('addTileButton')}
             </Button>
             {isEditing && (
-              <Button type="button" variant="outline" onClick={() => { form.reset(defaultFormValues); onCancelEdit();}} className="w-full">
+              <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues);}} className="w-full">
                 <XCircle className="mr-2 h-4 w-4" />
                 {t('cancelButton')}
               </Button>
+            )}
+             {!isEditing && ( // Add a cancel button for "Add New" mode in dialog
+                <Button type="button" variant="outline" onClick={() => { onCancelEdit(); form.reset(defaultFormValues); }} className="w-full">
+                     <XCircle className="mr-2 h-4 w-4" />
+                    {t('cancelButton')}
+                </Button>
             )}
           </div>
         </form>
@@ -428,4 +437,3 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
 };
 
 export default TileForm;
-

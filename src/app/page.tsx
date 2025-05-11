@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -15,13 +14,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader } from "@/components/ui/card"; // Added Card, CardContent, CardHeader
 import { useTranslation } from '@/context/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { getFirebaseInstances } from '@/lib/firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 
 const TILES_COLLECTION = "globalTilesInventory";
@@ -35,6 +34,7 @@ const SUFFIX_F = "F";
 const SUFFIX_HL4 = "HL-4";
 const SUFFIX_HL5 = "HL-5";
 
+// This config is used by InventoryPage for saving logic, ensure labels match TileForm's suffixConfig
 const suffixConfigPage = [
   { key: "L" as const, name: "suffix_L" as const, label: SUFFIX_L, quantityName: "quantity_L" as const },
   { key: "HL1" as const, name: "suffix_HL1" as const, label: SUFFIX_HL1, quantityName: "quantity_HL1" as const },
@@ -118,7 +118,7 @@ export default function InventoryPage() {
       return;
     }
     
-    const tileBaseProperties = { // Renamed for clarity
+    const tileBaseProperties = { 
       width: data.width,
       height: data.height,
     };
@@ -127,14 +127,13 @@ export default function InventoryPage() {
 
     try {
       if (id) { // Editing existing tile
-        // Determine the single active suffix for editing
         const activeSuffixConfig = suffixConfigPage.find(sf => data[sf.name]);
         let modelNumber = prefixStr;
         if (activeSuffixConfig) {
             modelNumber = prefixStr ? `${prefixStr}-${activeSuffixConfig.label}` : activeSuffixConfig.label;
-        } else if (!prefixStr) { // No prefix and no suffix selected, but it's an edit (should not happen with validation)
+        } else if (!prefixStr) { 
             modelNumber = "N/A";
-        } // if prefixStr exists and no suffix, modelNumber is just prefixStr
+        } 
         
         if (modelNumber === "") modelNumber = "N/A"; 
         
@@ -153,17 +152,13 @@ export default function InventoryPage() {
       } else { // Adding new tile(s)
         const modelsToCreateMap = new Map<string, Omit<Tile, 'id'|'createdAt'> & {createdAt: any}>(); 
         const checkedSuffixes = suffixConfigPage.filter(sf => data[sf.name]);
-        const multipleSuffixesChecked = checkedSuffixes.length > 1;
-
+        
         if (checkedSuffixes.length > 0) {
+            // One or more suffixes are checked. Use their individual quantities.
             for (const sf of checkedSuffixes) {
                 const model = prefixStr ? `${prefixStr}-${sf.label}` : sf.label;
-                let currentQuantity: number;
-                if (multipleSuffixesChecked) {
-                    currentQuantity = data[sf.quantityName] ?? 0; // Use per-suffix quantity
-                } else {
-                    currentQuantity = data.quantity ?? 0; // Use global quantity
-                }
+                // ALWAYS use per-suffix quantity from data[sf.quantityName] when a suffix is checked
+                const currentQuantity = data[sf.quantityName] ?? 0;
 
                 if (currentQuantity > 0 && !modelsToCreateMap.has(model)) {
                      modelsToCreateMap.set(model, {
@@ -174,8 +169,8 @@ export default function InventoryPage() {
                     });
                 }
             }
-        } else if (prefixStr) { // Only prefix provided
-            const quantity = data.quantity ?? 0;
+        } else if (prefixStr) { // No suffixes checked, but prefix is provided. Use global quantity.
+            const quantity = data.quantity ?? 0; // Use global quantity from form
              if (quantity > 0 && !modelsToCreateMap.has(prefixStr)){
                 modelsToCreateMap.set(prefixStr, {
                      ...tileBaseProperties,
@@ -184,9 +179,9 @@ export default function InventoryPage() {
                     createdAt: serverTimestamp(),
                 });
             }
-        } else { // Neither prefix nor any suffix provided (should be caught by validation)
-             const quantity = data.quantity ?? 0;
-             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { // Default to N/A if no other info and quantity > 0
+        } else { // Neither prefix nor any suffix provided (schema should prevent this if form is empty)
+             const quantity = data.quantity ?? 0; // Fallback, though schema should require some model part
+             if (quantity > 0 && !modelsToCreateMap.has("N/A")) { 
                  modelsToCreateMap.set("N/A", {
                      ...tileBaseProperties,
                     modelNumber: "N/A",
@@ -199,9 +194,9 @@ export default function InventoryPage() {
         const modelsToCreate = Array.from(modelsToCreateMap.keys());
         const tileDataObjects = Array.from(modelsToCreateMap.values());
 
-
         if (tileDataObjects.length === 0 ) {
            toast({ title: "Save Error", description: "No valid model number or quantity to save.", variant: "destructive" });
+           setIsFormOpen(false); // Close form if nothing to save.
            return; 
         }
 
@@ -258,7 +253,7 @@ export default function InventoryPage() {
       toast({
         title: t('toastTileDeletedTitle'),
         description: t('toastTileDeletedDescription', { modelNumber: tileDisplayName }),
-        variant: "destructive",
+        variant: "destructive", // Consider "default" or a custom success variant for non-error deletions
       });
     } catch (error) {
       console.error("Error deleting tile:", error);
@@ -313,7 +308,7 @@ export default function InventoryPage() {
           onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) {
-              setEditingTile(null);
+              setEditingTile(null); // Also clear editingTile when dialog is closed
             }
           }}
         >
@@ -330,7 +325,7 @@ export default function InventoryPage() {
             <TileForm 
               onSaveTile={handleSaveTile} 
               editingTile={editingTile}
-              onCancelEdit={handleCancelEditOnForm}
+              onCancelEdit={handleCancelEditOnForm} // Pass the cancel handler
             />
           </DialogContent>
         </Dialog>
@@ -338,7 +333,7 @@ export default function InventoryPage() {
         {isLoading ? ( 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, index) => (
-               <Card key={index} className="w-full shadow-md"> {/* Removed max-w-xs etc. for consistency with TileList */}
+               <Card key={index} className="w-full shadow-md">
                 <CardHeader className="pb-2">
                   <Skeleton className="h-6 w-3/4" />
                 </CardHeader>
@@ -369,4 +364,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-

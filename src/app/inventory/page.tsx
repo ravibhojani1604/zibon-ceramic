@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -39,14 +40,14 @@ const typeConfigPage = [
 export default function InventoryPage() {
   const { user, loading: authLoading, logout, isLoggingOut } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  const { t, locale } = useTranslation();
 
+  // All state and effect hooks must be called before any conditional returns.
   const [rawTiles, setRawTiles] = useState<Tile[]>([]);
   const [groupedTiles, setGroupedTiles] = useState<GroupedDisplayTile[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true); 
-  const { toast } = useToast();
-  const { t, locale } = useTranslation();
-
   const [formMode, setFormMode] = useState<'add' | 'editVariant' | 'editGroup'>('add');
   const [initialDataForForm, setInitialDataForForm] = useState<TileFormData | null>(null);
   const [editingVariant, setEditingVariant] = useState<Tile | null>(null); 
@@ -446,6 +447,7 @@ export default function InventoryPage() {
     return "";
   }, [formMode, t]);
 
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="py-6 bg-card border-b border-border shadow-sm sticky top-0 z-10">
@@ -568,3 +570,4 @@ export default function InventoryPage() {
       </footer>
     </div>
   );
+}

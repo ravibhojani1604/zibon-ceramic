@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -53,7 +52,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     resolver: zodResolver(tileSchema),
     defaultValues: {
       modelNumberPrefix: undefined,
-      modelNumberSuffix: "",
+      modelNumberSuffix: "", // "" will map to EMPTY_SUFFIX_VALUE for display
       width: undefined, 
       height: undefined,
       quantity: undefined,
@@ -68,8 +67,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
       if (editingTile.modelNumber && editingTile.modelNumber !== "N/A") {
         const fullMN = editingTile.modelNumber;
         let foundMatch = false;
-        // Sort options by length descending to match longer suffixes first (e.g., "hl-1" before "hl")
-        const sortedSuffixOptions = [...modelNumberSuffixOptions].sort((a, b) => b.length - a.length);
+        const sortedSuffixOptions = [...modelNumberSuffixOptions].filter(opt => opt.toLowerCase() !== "custom").sort((a, b) => b.length - a.length);
 
         for (const opt of sortedSuffixOptions) {
           if (fullMN.endsWith(`-${opt}`)) {
@@ -81,8 +79,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
             parsedSuffix = opt;
             foundMatch = true;
             break;
-          } else if (fullMN === opt && !modelNumberSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || modelNumberSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
-            // Ensure it's not just the start of a prefix-suffix combo, or the end of another known suffix
+          } else if (fullMN === opt && !sortedSuffixOptions.some(sOpt => fullMN.startsWith(sOpt + "-") || sortedSuffixOptions.some(sOpt2 => sOpt2 !== opt && fullMN.endsWith("-" + sOpt2)) )) {
             parsedSuffix = opt;
             foundMatch = true;
             break;
@@ -94,21 +91,18 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
           if (!isNaN(num) && String(num) === fullMN) { 
             parsedPrefix = num;
           } else {
-             // Try to extract a leading number if the full string is not a number and no suffix matched
              const leadingNumberMatch = fullMN.match(/^(\d+(\.\d+)?)/);
              if (leadingNumberMatch) {
                 parsedPrefix = parseFloat(leadingNumberMatch[1]);
-                // If there's text after the number that wasn't a known suffix, it's complex.
-                // For now, we just take the prefix. Could add logic for unknown suffixes if needed.
              }
-             // If no number part can be reasonably extracted, parsedPrefix remains undefined.
           }
         }
       }
-
+      // If parsedSuffix is "", it will correctly show "None" in the dropdown.
+      // "Custom" is not parsed from modelNumber string as it implies a blank suffix.
       form.reset({
         modelNumberPrefix: parsedPrefix,
-        modelNumberSuffix: parsedSuffix,
+        modelNumberSuffix: parsedSuffix, // This will be "" or one of ["hl-1", "hl-2", "d", "f"]
         width: editingTile.width,
         height: editingTile.height,
         quantity: editingTile.quantity,
@@ -116,7 +110,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
     } else {
       form.reset({
         modelNumberPrefix: undefined,
-        modelNumberSuffix: "",
+        modelNumberSuffix: "", // Default to "" which shows "None"
         width: undefined,
         height: undefined,
         quantity: undefined,
@@ -173,10 +167,10 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, editingTile, onCancelEdit }) 
                     <FormItem className="flex-1">
                       <Select 
                         onValueChange={(selectedValue) => {
-                          if (selectedValue === EMPTY_SUFFIX_VALUE) {
-                            field.onChange(""); 
+                          if (selectedValue === EMPTY_SUFFIX_VALUE || selectedValue === "Custom") { // If "None" or "Custom" selected
+                            field.onChange(""); // Store empty string for suffix
                           } else {
-                            field.onChange(selectedValue);
+                            field.onChange(selectedValue); // Store actual value e.g. "hl-1"
                           }
                         }} 
                         value={field.value === undefined || field.value === "" ? EMPTY_SUFFIX_VALUE : field.value}

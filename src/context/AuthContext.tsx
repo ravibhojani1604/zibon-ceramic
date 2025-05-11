@@ -8,7 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { getFirebaseInstances, ensureFirebaseInitialized } from '@/lib/firebase';
+import { getFirebaseInstances, ensureFirebaseInitialized } from '@/lib/firebase'; 
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -42,14 +42,16 @@ const showToastOnce = (id: string, toastFn: () => void, delay = 300) => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true); // True until Firebase auth state is determined
+  const [loading, setLoading] = useState(true); 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isMounted, setIsMounted] = useState(false); // New state for client-side mount
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
 
 
   useEffect(() => {
+    setIsMounted(true); // Component has mounted on the client
     let unsubscribe: (() => void) | undefined;
 
     const initializeAuthListener = async () => {
@@ -58,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         unsubscribe = onAuthStateChanged(auth, (currentUser) => {
           setUser(currentUser);
-          setLoading(false); // Auth state determined, no longer loading initial auth status
+          setLoading(false); 
           if (!currentUser) {
             console.log("AuthContext: User signed out or no user found, user state updated to null.");
           }
@@ -77,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
           }, 500); 
         setUser(null);
-        setLoading(false); // Stop loading even if there's an error
+        setLoading(false); 
       }
     };
 
@@ -87,20 +89,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (unsubscribe) {
         unsubscribe();
       }
-      // Clear any pending toasts from this utility if AuthProvider unmounts
       toastTimeouts.forEach(clearTimeout);
       toastTimeouts.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
+  }, []); 
 
   const login = async (data: AuthFormData) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances(); 
-      if (!auth) throw new Error("Auth not initialized for login");
+      if (!auth) throw new Error(t('authForm.authInitError') || "Auth not initialized for login");
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      // onAuthStateChanged will update user state and loading state
       router.push('/inventory'); 
       toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
     } catch (error) {
@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           break;
       }
       toast({ title: t('authForm.loginFailedTitle'), description: errorMessage, variant: "destructive" });
-      setLoading(false); // Explicitly set loading to false on login failure
+      setLoading(false); 
     }
   };
 
@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { auth } = await getFirebaseInstances(); 
-      if (!auth) throw new Error("Auth not initialized for register");
+      if (!auth) throw new Error(t('authForm.authInitError') || "Auth not initialized for register");
       await createUserWithEmailAndPassword(auth, data.email, data.password);
       router.push('/login'); 
       toast({ 
@@ -164,12 +164,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       toast({ title: t('authForm.registerFailedTitle'), description: errorMessage, variant: "destructive" });
     } finally {
-      setLoading(false); // Explicitly set loading to false after registration attempt
+      setLoading(false); 
     }
   };
 
   const logout = async () => {
-    if (isLoggingOut) return; // Prevent multiple logout calls
+    if (isLoggingOut) return; 
 
     setIsLoggingOut(true);
     setLoading(true); 
@@ -180,7 +180,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(t('authForm.authInitErrorLogout') || "Authentication service is not available for logout. Please try again.");
       }
       await signOut(auth); 
-      // onAuthStateChanged will set user to null and setLoading to false.
       router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
@@ -202,35 +201,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: errorMessage, 
         variant: "destructive" 
       });
-      setLoading(false); // Ensure loading is false if signOut fails
+      setLoading(false); 
     } finally {
         setIsLoggingOut(false);
     }
   };
   
-  // This loading UI is shown:
-  // 1. On the server (because `loading` is initially true).
-  // 2. On the client, initially (because `loading` is initially true).
-  // 3. On the client, until `onAuthStateChanged` callback sets `loading` to false.
-  if (loading) {
+  if (loading || !isMounted) { // Show loading UI if loading or not yet mounted on client
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
-          <svg
-            className="h-16 w-16 text-primary mx-auto animate-spin" 
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            data-ai-hint="ceramic tile"
-          >
-            <path d="M3 3h7v7H3z" />
-            <path d="M14 3h7v7h-7z" />
-            <path d="M3 14h7v7H3z" />
-            <path d="M14 14h7v7h-7z" />
-          </svg>
+          {isMounted && ( // Only render SVG spinner if mounted and still loading
+            <svg
+              className="h-16 w-16 text-primary mx-auto animate-spin" 
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              data-ai-hint="ceramic tile"
+            >
+              <path d="M3 3h7v7H3z" />
+              <path d="M14 3h7v7h-7z" />
+              <path d="M3 14h7v7H3z" />
+              <path d="M14 14h7v7h-7z" />
+            </svg>
+          )}
+          {!isMounted && <div className="h-16 w-16 mx-auto" />} {/* Placeholder for SVG to maintain layout during SSR */}
           <Skeleton className="h-8 w-3/4 mx-auto" />
           <Skeleton className="h-6 w-1/2 mx-auto" />
         </div>
@@ -253,4 +251,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

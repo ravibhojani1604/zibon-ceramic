@@ -13,11 +13,7 @@
 
   "errorMessages": {
     "fetchErrorTitle": "ડેટા લાવવામાં ભૂલ",
-    "fetchErrorDescription": "ટાઇલ ડેટા લોડ કરી શકાયો નથી. કૃપા કરીને તમારું કનેક્શન તપાસો અથવા પછીથી ફરી પ્રયાસ કરો.",
-    "emailRequired": "ઇમેઇલ જરૂરી છે.",
-    "emailInvalid": "અમાન્ય ઇમેઇલ સરનામું.",
-    "passwordRequired": "પાસવર્ડ જરૂરી છે.",
-    "passwordMinLength": "પાસવર્ડ ઓછામાં ઓછો 6 અક્ષરોનો હોવો જોઈએ."
+    "fetchErrorDescription": "ટાઇલ ડેટા લોડ કરી શકાયો નથી. કૃપા કરીને તમારું કનેક્શન તપાસો અથવા પછીથી ફરી પ્રયાસ કરો."
   },
 
   "tileFormCardTitleAdd": "નવી ટાઇલ ઉમેરો",

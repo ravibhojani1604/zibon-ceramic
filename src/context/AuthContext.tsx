@@ -19,7 +19,7 @@ import type { AuthFormData } from '@/components/AuthForm';
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
-  isLoggingOut: boolean; // Added to signal logout process
+  isLoggingOut: boolean;
   login: (data: AuthFormData) => Promise<void>;
   register: (data: AuthFormData) => Promise<void>;
   logout: () => Promise<void>;
@@ -42,31 +42,27 @@ const showToastOnce = (id: string, toastFn: () => void, delay = 300) => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false); // State to signal logout
+  const [loading, setLoading] = useState(true); // True until Firebase auth state is determined
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const [initialAuthDone, setInitialAuthDone] = useState(false);
 
 
   useEffect(() => {
-    const initializeAuth = async () => {
+    let unsubscribe: (() => void) | undefined;
+
+    const initializeAuthListener = async () => {
       try {
         const { auth } = await ensureFirebaseInitialized();
         
-        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
           setUser(currentUser);
-          setLoading(false);
-          setInitialAuthDone(true);
+          setLoading(false); // Auth state determined, no longer loading initial auth status
           if (!currentUser) {
-            console.log("AuthContext: User signed out, user state updated to null.");
+            console.log("AuthContext: User signed out or no user found, user state updated to null.");
           }
         });
-        return () => {
-          unsubscribeAuth();
-        }
-
       } catch (error: any) {
         console.error("Error during Firebase Auth initialization in AuthProvider:", error.message);
         const errorId = 'authInitErrorContext';
@@ -81,16 +77,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
           }, 500); 
         setUser(null);
-        setLoading(false);
-        setInitialAuthDone(true);
+        setLoading(false); // Stop loading even if there's an error
       }
     };
 
-    if (!initialAuthDone) {
-        initializeAuth();
-    }
+    initializeAuthListener();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      // Clear any pending toasts from this utility if AuthProvider unmounts
+      toastTimeouts.forEach(clearTimeout);
+      toastTimeouts.clear();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAuthDone, t]); 
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
   const login = async (data: AuthFormData) => {
     setLoading(true);
@@ -98,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { auth } = await getFirebaseInstances(); 
       if (!auth) throw new Error("Auth not initialized for login");
       await signInWithEmailAndPassword(auth, data.email, data.password);
+      // onAuthStateChanged will update user state and loading state
       router.push('/inventory'); 
       toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
     } catch (error) {
@@ -118,12 +121,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case 'auth/network-request-failed':
           errorMessage = t('authForm.errorNetworkRequestFailed') || "Network error. Please check your connection and try again.";
           break;
-        default: // Default to Firebase's message if not specifically handled
+        default: 
           errorMessage = authError.message || (t('authForm.loginFailedTitle') || "Login failed. Please try again.");
           break;
       }
       toast({ title: t('authForm.loginFailedTitle'), description: errorMessage, variant: "destructive" });
-      setLoading(false); 
+      setLoading(false); // Explicitly set loading to false on login failure
     }
   };
 
@@ -161,29 +164,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       toast({ title: t('authForm.registerFailedTitle'), description: errorMessage, variant: "destructive" });
     } finally {
-      setLoading(false); 
+      setLoading(false); // Explicitly set loading to false after registration attempt
     }
   };
 
   const logout = async () => {
-    if (!user) {
-      console.log("User already signed out or not signed in. Redirecting to login.");
-      if (isLoggingOut) setIsLoggingOut(false);
-      if (loading) setLoading(false);
-      router.push('/login');
-      return;
-    }
+    if (isLoggingOut) return; // Prevent multiple logout calls
 
-    setIsLoggingOut(true); // Signal that logout process has started
-    setLoading(true); // Indicate an operation is in progress
+    setIsLoggingOut(true);
+    setLoading(true); 
 
     try {
       const { auth } = await getFirebaseInstances();
       if (!auth) {
         throw new Error(t('authForm.authInitErrorLogout') || "Authentication service is not available for logout. Please try again.");
       }
-      await signOut(auth); // This will trigger onAuthStateChanged
-      // onAuthStateChanged is responsible for setting user to null and setLoading to false
+      await signOut(auth); 
+      // onAuthStateChanged will set user to null and setLoading to false.
       router.push('/login'); 
       toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
     } catch (error) {
@@ -205,16 +202,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: errorMessage, 
         variant: "destructive" 
       });
-      setLoading(false); // Ensure loading is false if signOut fails and onAuthStateChanged doesn't run to clear it
+      setLoading(false); // Ensure loading is false if signOut fails
     } finally {
-        setIsLoggingOut(false); // Reset the flag when logout process is complete (or failed)
-        // setLoading(false) should be handled by onAuthStateChanged on success, or catch block on error.
-        // If signOut was successful, onAuthStateChanged handles setLoading.
-        // If signOut failed, the catch block should have set loading to false.
+        setIsLoggingOut(false);
     }
   };
   
-  if (loading && !initialAuthDone) {
+  // This loading UI is shown:
+  // 1. On the server (because `loading` is initially true).
+  // 2. On the client, initially (because `loading` is initially true).
+  // 3. On the client, until `onAuthStateChanged` callback sets `loading` to false.
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">

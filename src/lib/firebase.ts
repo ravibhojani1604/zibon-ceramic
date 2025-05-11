@@ -31,23 +31,32 @@ if (missingKeys.length > 0) {
   );
   // appInstance, authInstance, and dbInstance will remain undefined.
 } else {
-  if (typeof window !== "undefined" && !getApps().length) {
+  // Config keys are present and TRUTHY (but could be invalid values like placeholders)
+  if (!getApps().length) { // No Firebase app has been initialized yet (applies to server or client first run)
     try {
+      // console.log(`Initializing Firebase app (env: ${typeof window === 'undefined' ? 'server' : 'client'})...`);
       appInstance = initializeApp(firebaseConfig);
+    } catch (error) {
+      console.error(`Firebase initializeApp error (env: ${typeof window === 'undefined' ? 'server' : 'client'}):`, error);
+      // appInstance remains undefined
+    }
+  } else { // Firebase app already exists
+    // console.log(`Using existing Firebase app (env: ${typeof window === 'undefined' ? 'server' : 'client'})...`);
+    appInstance = getApps()[0];
+  }
+
+  // If appInstance was successfully initialized or retrieved
+  if (appInstance) {
+    try {
       authInstance = getAuth(appInstance);
       dbInstance = getFirestore(appInstance);
     } catch (error) {
-      console.error("Firebase initialization error:", error);
-      // Prevent further execution if Firebase fails to initialize
-      appInstance = undefined;
+      console.error(`Firebase getAuth/getFirestore error (env: ${typeof window === 'undefined' ? 'server' : 'client'}):`, error);
+      // Ensure these are undefined if services can't be obtained, even if appInstance exists.
+      // This can happen if appInstance was initialized with an invalid config leading to errors here.
       authInstance = undefined;
       dbInstance = undefined;
     }
-  } else if (getApps().length > 0) {
-    // For Next.js server-side rendering or if already initialized
-    appInstance = getApps()[0];
-    authInstance = getAuth(appInstance);
-    dbInstance = getFirestore(appInstance);
   }
 }
 
@@ -57,14 +66,22 @@ export const db = dbInstance;
 
 // Helper function to ensure Firebase is initialized before use
 export const ensureFirebaseInitialized = async (): Promise<{ app: FirebaseApp, auth: Auth, db: Firestore }> => {
-  if (!appInstance || !authInstance || !dbInstance) {
-    // This typically means the config was missing or initialization failed.
-    // Wait a short period for async initialization if it's just a timing issue on client
-    await new Promise(resolve => setTimeout(resolve, 100));
-    if (!appInstance || !authInstance || !dbInstance) {
-       console.error("Firebase is not initialized. Please check your configuration and ensure .env.local is set up correctly.");
-       throw new Error("Firebase not initialized");
-    }
+  // Check if instances are already valid from the initial module load attempt
+  if (appInstance && authInstance && dbInstance) {
+    return { app: appInstance, auth: authInstance, db: dbInstance };
   }
+
+  // If instances are not set, it means initial setup failed (e.g. config missing, or init error caught above).
+  // A short delay might help if there was a race condition, though less likely with the new structure.
+  await new Promise(resolve => setTimeout(resolve, 50)); 
+
+  if (!appInstance || !authInstance || !dbInstance) {
+     // Errors during the initial (module-level) attempt should have already been logged.
+     // This error indicates that those attempts failed and instances are still not available.
+     console.error("Firebase is not initialized (ensureFirebaseInitialized). Critical instances missing. Check previous logs for configuration or initialization errors.");
+     throw new Error("Firebase not initialized. Firebase app, auth, or firestore instances are missing.");
+  }
+  
+  // Should be unreachable if the above condition is met and throws, but as a safeguard:
   return { app: appInstance!, auth: authInstance!, db: dbInstance! };
 };

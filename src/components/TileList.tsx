@@ -234,7 +234,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-0 md:p-4">
               {paginatedGroupedTiles.map((group) => (
-                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-[400px] sm:max-w-xs md:max-w-sm lg:max-w-md mx-auto">
+                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-md sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto">
                   <CardHeader className="pb-3 px-4 pt-4 sm:px-6 sm:pt-6">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Box className="text-primary" size={24} aria-label="Box icon"/>

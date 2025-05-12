@@ -1,9 +1,9 @@
+
 'use client';
 
 import type { FC } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import TileForm, { type TileFormData } from '@/components/TileForm';
-import {typeConfig, createInitialDefaultFormValues} from '@/components/TileForm';
+import TileForm, { type TileFormData, createInitialDefaultFormValues, typeConfig } from '@/components/TileForm';
 import TileList from '@/components/TileList';
 import type { GroupedDisplayTile, FirebaseTileDoc } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -18,9 +18,9 @@ import { cn } from '@/lib/utils';
 
 
 const InventoryPage: FC = () => {
-  const { user, isInitializing: authIsInitializing } = useAuth(); // Renamed to avoid conflict
+  const { user, isInitializing: authIsInitializing } = useAuth(); 
   const [tiles, setTiles] = useState<FirebaseTileDoc[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // This is for tile data loading
+  const [isLoading, setIsLoading] = useState(true); 
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTileGroup, setEditingTileGroup] = useState<GroupedDisplayTile | null>(null);
@@ -39,13 +39,12 @@ const InventoryPage: FC = () => {
     let localUnsubscribe: (() => void) | null = null;
   
     if (authIsInitializing || !user) {
-      setIsLoading(false); // Stop tile loading if auth is not ready or no user
+      setIsLoading(false); 
       setTiles([]); 
       setError(null);
       return;
     }
   
-    // Start loading tile data only if auth is initialized and user exists
     setIsLoading(true); 
     const setupFirestoreListener = async () => {
       try {
@@ -66,7 +65,7 @@ const InventoryPage: FC = () => {
           setError(null);
         }, (err: FirestoreError) => {
           console.error("Error fetching tiles:", err.code, err.message);
-          if (user) { // Only process error if a user was expected
+          if (user) { 
             if (err.code === 'permission-denied') {
               console.warn("Firestore permission denied. This might be due to logout. Suppressing fetch error toast.");
               setTiles([]);
@@ -139,7 +138,7 @@ const InventoryPage: FC = () => {
 
   const initialFormValues = useMemo(() => {
     if (formMode === 'edit' && editingTileGroup) {
-      const formData: any = {
+      const formData: Partial<TileFormData> = { // Use Partial here
         modelNumberPrefix: editingTileGroup.modelNumberPrefix === "N/A" ? undefined : editingTileGroup.modelNumberPrefix,
         width: editingTileGroup.width,
         height: editingTileGroup.height,
@@ -157,7 +156,7 @@ const InventoryPage: FC = () => {
 
 
   const handleSaveTile = async (data: TileFormData) => {
-    setIsLoading(true); // For save operation
+    setIsLoading(true); 
     try {
         const { db } = await getFirebaseInstances();
         if (!db) throw new Error("Firestore not initialized");
@@ -169,10 +168,10 @@ const InventoryPage: FC = () => {
         const variantsToProcess: Array<Partial<FirebaseTileDoc> & { originalId?: string }> = [];
         let anyVariantProcessed = false;
 
-        const checkedTypes = typeConfig.filter(sf => data[sf.name]);
+        const checkedTypes = typeConfig.filter(sf => data[sf.name as keyof TileFormData]);
         if (checkedTypes.length > 0) {
             for (const type of checkedTypes) {
-                const quantityForType = data[type.quantityName];
+                const quantityForType = data[type.quantityName as keyof TileFormData];
                 if (quantityForType !== undefined && quantityForType > 0) {
                     variantsToProcess.push({
                         modelNumberPrefix: modelPrefixToSave,
@@ -286,16 +285,14 @@ const InventoryPage: FC = () => {
     setIsFormOpen(true);
   };
 
-  // This loader is for the InventoryPage itself, shown if auth is initializing.
-  // It uses a structure similar to AuthProvider's loader.
-  if (authIsInitializing && !user) { 
+
+  if (authIsInitializing && !user && clientMounted) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
            <svg
             className={cn(
               "h-16 w-16 text-primary",
-              // Animate only if client has mounted and auth is still initializing
               { 'animate-spin': clientMounted && authIsInitializing }
             )}
             viewBox="0 0 24 24"
@@ -336,7 +333,7 @@ const InventoryPage: FC = () => {
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
-            <DialogHeader className="px-6 pt-6">
+            <DialogHeader className="px-6 pt-6 sticky top-0 bg-background z-10 border-b pb-4">
               <DialogTitle>
                 {formMode === 'edit' ? t('tileFormCardTitleEditGroup') : t('tileFormCardTitleAdd')}
               </DialogTitle>
@@ -361,7 +358,7 @@ const InventoryPage: FC = () => {
         </Dialog>
       </div>
 
-      {isLoading && user && !tiles.length ? ( // Show skeleton for tile data loading
+      {isLoading && user && !tiles.length && clientMounted ? ( 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
              <div key={i} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-3 animate-pulse">

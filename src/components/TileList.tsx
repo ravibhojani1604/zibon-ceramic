@@ -49,7 +49,7 @@ const TileList: FC<TileListProps> = ({
   totalTileDocs,
   onPageChange,
   onItemsPerPageChange,
-  isLoading
+  isLoading // New prop for pagination loading state
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -374,4 +374,3 @@ const TileList: FC<TileListProps> = ({
 };
 
 export default TileList;
-

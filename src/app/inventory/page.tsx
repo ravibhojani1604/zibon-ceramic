@@ -4,7 +4,7 @@ import type { FC } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import TileForm, { type TileFormData, createInitialDefaultFormValues } from '@/components/TileForm';
 import { typeConfig } from '@/components/TileForm'; // Explicitly import typeConfig
-import TileList from '@/components/TileList';
+import TileList, { ITEMS_PER_PAGE_OPTIONS } from '@/components/TileList'; // Import ITEMS_PER_PAGE_OPTIONS
 import type { GroupedDisplayTile, FirebaseTileDoc } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
@@ -35,7 +35,6 @@ import {
 } from 'firebase/firestore';
 import { useAuth, registerFirestoreUnsubscriber } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { ITEMS_PER_PAGE_OPTIONS } from '@/components/TileList';
 
 
 const InventoryPage: FC = () => {
@@ -49,7 +48,7 @@ const InventoryPage: FC = () => {
   const [clientMounted, setClientMounted] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]); // Default to 10
   const [totalTileDocs, setTotalTileDocs] = useState(0);
   const [lastVisibleDoc, setLastVisibleDoc] = useState<DocumentSnapshot | null>(null);
   const [firstVisibleDoc, setFirstVisibleDoc] = useState<DocumentSnapshot | null>(null);
@@ -131,8 +130,8 @@ const InventoryPage: FC = () => {
   
         localUnsubscribe = onSnapshot(q, (querySnapshot) => {
           const fetchedTiles: FirebaseTileDoc[] = [];
-          querySnapshot.forEach((doc) => {
-            fetchedTiles.push({ id: doc.id, ...doc.data() } as FirebaseTileDoc);
+          querySnapshot.forEach((docSnap) => { // Renamed doc to docSnap to avoid conflict
+            fetchedTiles.push({ id: docSnap.id, ...docSnap.data() } as FirebaseTileDoc);
           });
           setTiles(fetchedTiles);
 
@@ -156,9 +155,9 @@ const InventoryPage: FC = () => {
         }, (err: FirestoreError) => {
           console.error("Error fetching tiles:", err.code, err.message);
           if (user) { 
-            if (err.code === 'permission-denied') {
-              console.warn("Firestore permission denied. This might be due to logout. Suppressing fetch error toast.");
-              setTiles([]);
+            if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
+              console.warn("Firestore permission denied or unauthenticated. This might be due to logout. Suppressing fetch error toast.");
+              setTiles([]); // Clear tiles on permission error if user context is still somehow present
             } else {
               setError(t('errorMessages.fetchErrorDescription'));
               toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: 'destructive' });
@@ -189,6 +188,7 @@ const InventoryPage: FC = () => {
       }
       registerFirestoreUnsubscriber(null); 
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authIsInitializing, t, toast, currentPage, itemsPerPage, queryDirection, totalTileDocs]); // Added queryDirection and totalTileDocs
 
 
@@ -368,12 +368,12 @@ const InventoryPage: FC = () => {
         return;
       }
 
-      const batch = writeBatch(db);
+      const batchCommit = writeBatch(db); // Renamed batch to batchCommit
       group.variants.forEach(variant => {
         const docRef = doc(db, 'tiles', variant.id);
-        batch.delete(docRef);
+        batchCommit.delete(docRef);
       });
-      await batch.commit();
+      await batchCommit.commit();
        // Refetch total count as data has changed.
       const countSnapshot = await getCountFromServer(collection(db, 'tiles'));
       setTotalTileDocs(countSnapshot.data().count);
@@ -506,7 +506,7 @@ const InventoryPage: FC = () => {
           totalTileDocs={totalTileDocs}
           onPageChange={handlePageChange}
           onItemsPerPageChange={handleItemsPerPageChange}
-          isLoading={isFetchingPageData}
+          isLoading={isFetchingPageData} // Pass the new loading state for pagination
         />
       )}
     </div>

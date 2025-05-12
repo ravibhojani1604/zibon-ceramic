@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import type { FC } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { GroupedDisplayTile, TileVariant } from "@/types";
+import type { GroupedDisplayTile, TileVariantDisplay } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,7 +210,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                 aria-label={t('searchAriaLabel')}
               />
             </div>
-            <div className="flex gap-2 mt-2 sm:mt-0">
+            <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
               <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto">
                 <FileDown className="mr-1 h-4 w-4" /> {t('downloadPDF')}
               </Button>
@@ -339,6 +340,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+
 
 
 

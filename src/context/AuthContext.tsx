@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode, FC } from 'react';
@@ -33,8 +34,8 @@ let firestoreUnsubscribeGlobal: (() => void) | null = null;
 
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [loading, setLoading] = useState(false); // loading for auth operations
+  const [isInitializing, setIsInitializing] = useState(true); // loading for initial auth state check
   const [isMounted, setIsMounted] = useState(false);
 
   const router = useRouter();
@@ -57,8 +58,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         case 'auth/invalid-credential':
           errorDescriptionKeySuffix = 'InvalidCredential';
           break;
-        case 'auth/user-not-found': // Often grouped with invalid-credential for security
-        case 'auth/wrong-password': // Often grouped with invalid-credential for security
+        case 'auth/user-not-found': 
+        case 'auth/wrong-password': 
           errorDescriptionKeySuffix = 'InvalidCredential';
           break;
         case 'auth/user-disabled':
@@ -80,7 +81,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
            errorDescriptionKeySuffix = 'RequiresRecentLogin';
            defaultMessage = t('authForm.errorRequiresRecentLogin');
            break;
-        case 'auth/configuration-not-found': // Specific Firebase setup error
+        case 'auth/configuration-not-found':
            errorDescriptionKeySuffix = 'ConfigurationNotFound';
            defaultMessage = t('authForm.errorConfigurationNotFound');
            break;
@@ -109,22 +110,25 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         if (!auth) {
           console.error('Auth service is not available for listener setup.');
           setIsInitializing(false);
-          if (isMounted) {
-             toast({ title: t('authForm.authErrorTitle'), description: t('authForm.authInitError'), variant: 'destructive' });
-          }
+          // Only toast if component is still mounted, to avoid memory leaks or errors
+          // if (isMounted) removed as isMounted will be true here.
+          toast({ title: t('authForm.authErrorTitle'), description: t('authForm.authInitError'), variant: 'destructive' });
           return;
         }
 
         if (authStateUnsubscribeGlobal) {
+          console.log("AuthContext: Clearing previous global auth state listener.");
           authStateUnsubscribeGlobal();
           authStateUnsubscribeGlobal = null;
         }
-
+        
+        console.log("AuthContext: Setting up new global auth state listener.");
         authStateUnsubscribeGlobal = onAuthStateChanged(
           auth,
           (currentUser) => {
             setUser(currentUser);
             setIsInitializing(false);
+            console.log("AuthContext: Auth state changed. User:", currentUser ? currentUser.uid : null, "Initializing:", false);
 
             if (currentUser) {
               if (pathname === '/login' || pathname === '/register' || pathname === '/') {
@@ -132,29 +136,31 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
               }
             } else {
               const publicPaths = ['/login', '/register'];
+               // if current path is root, redirect to login
               if (pathname === '/') {
-                router.replace('/login');
-              } else if (!publicPaths.includes(pathname) && !pathname.startsWith('/inventory')) { 
-                router.replace('/login');
+                 router.replace('/login');
+              }
+              // If not a public path and not already on a public path, redirect to login
+              // This check helps prevent redirect loops if already on login/register
+              else if (!publicPaths.includes(pathname) && pathname.startsWith('/inventory')) {
+                  router.replace('/login');
               }
             }
           },
           (error: AuthError) => {
-            console.error('Auth state listener error:', error);
+            console.error('AuthContext: Auth state listener error:', error);
             setUser(null);
             setIsInitializing(false);
-            if (isMounted) {
-                handleAuthError(error, 'logout'); // Treat as a general auth issue
-            }
+            // if (isMounted) removed
+            handleAuthError(error, 'logout'); 
           }
         );
       } catch (error) {
-        console.error('Error initializing Firebase or Auth listener:', error);
+        console.error('AuthContext: Error initializing Firebase or Auth listener:', error);
         setUser(null);
         setIsInitializing(false);
-        if (isMounted) {
-            toast({ title: t('authForm.authErrorTitle'), description: (error as Error).message, variant: 'destructive' });
-        }
+        // if (isMounted) removed
+        toast({ title: t('authForm.authErrorTitle'), description: (error as Error).message, variant: 'destructive' });
       }
     };
 
@@ -162,10 +168,14 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     return () => {
       if (authStateUnsubscribeGlobal) {
+        console.log("AuthContext: Unsubscribing global auth state listener on cleanup.");
         authStateUnsubscribeGlobal();
         authStateUnsubscribeGlobal = null;
       }
+      // Firestore listener is managed separately by its owner component via registerFirestoreUnsubscriber
+      // but ensure it's cleared if AuthProvider itself unmounts (though less likely for a root provider)
       if (firestoreUnsubscribeGlobal) {
+        console.log("AuthContext: Unsubscribing global Firestore listener on AuthProvider cleanup.");
         firestoreUnsubscribeGlobal();
         firestoreUnsubscribeGlobal = null;
       }
@@ -174,18 +184,18 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const login = useCallback(
     async (data: AuthFormData) => {
-      if (!isMounted) return;
+      if (!isMounted) return; // Should not happen if user can interact
       setLoading(true);
       try {
         const { auth } = await getFirebaseInstances();
         if (!auth) {
-          console.error("Auth not initialized for login");
-          toast({ title: t('authForm.loginFailedTitle'), description: t('authForm.authInitError'), variant: 'destructive' });
-          setLoading(false);
-          return;
+           console.error("Auth not initialized for login");
+           toast({ title: t('authForm.loginFailedTitle'), description: t('authForm.authInitError'), variant: 'destructive' });
+           setLoading(false);
+           return;
         }
         await signInWithEmailAndPassword(auth, data.email, data.password);
-        // onAuthStateChanged will handle user state update and redirection to /inventory.
+        // onAuthStateChanged will handle user state update and redirection.
         toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
       } catch (error) {
         handleAuthError(error as AuthError, 'login');
@@ -225,62 +235,58 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const logout = useCallback(async () => {
     if (!isMounted) return;
-
     setLoading(true);
 
+    // Unsubscribe from Firestore listener if it exists
     if (firestoreUnsubscribeGlobal) {
+      console.log('AuthContext: Unsubscribing Firestore listener during logout.');
       firestoreUnsubscribeGlobal();
       firestoreUnsubscribeGlobal = null;
-      console.log('AuthContext: Firestore listener unsubscribed during logout.');
     }
     
     try {
       const { auth } = await getFirebaseInstances();
       if (!auth) {
-        // If auth is not available, we can't call signOut, but we should clear local state
-        // and redirect. This is a fallback.
         console.warn("Auth service not available for logout. Clearing local state and redirecting.");
-        setUser(null);
-        // setIsInitializing(false); // Not necessarily needed if user is explicitly set to null
+        setUser(null); // Clear local user state
+        // No need to setIsInitializing to false here, onAuthStateChanged will handle it if auth re-initializes
         router.replace('/login');
         toast({ title: t('authForm.logoutFailedTitle'), description: t('authForm.authInitErrorLogout'), variant: 'warning' });
         setLoading(false);
         return;
       }
 
-      if (auth.currentUser) { // Only attempt signOut if a user is actually logged in according to Firebase
+      if (auth.currentUser) {
         await signOut(auth);
         // setUser(null) and redirection will be handled by onAuthStateChanged
         toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
       } else {
-        // If no currentUser, effectively already logged out from Firebase's perspective.
-        // Ensure local state reflects this and redirect.
+        // If no user, effectively logged out. Ensure local state and UI reflect this.
         setUser(null);
-        router.replace('/login');
+        router.replace('/login'); // Ensure redirect if somehow on a protected page
         toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.alreadyLoggedOut'), variant: 'info' });
       }
     } catch (error) {
-      // Handle potential errors from signOut (though less common than login/register errors)
-      // It's important to still clear local state and redirect even if signOut itself fails.
       handleAuthError(error as AuthError, 'logout');
-      setUser(null); // Ensure local state is cleared
-      router.replace('/login'); // Redirect to login page
+      // Ensure state is cleared even if signOut fails
+      setUser(null);
+      router.replace('/login');
     } finally {
       setLoading(false);
     }
   }, [isMounted, handleAuthError, router, t, toast]);
+  
+  const showAnimatedLoader = isInitializing;
 
-  const showAnimatedLoader = isMounted && isInitializing;
-
-  if (isInitializing) {
+  if (isInitializing && isMounted) { // Show loader only if initializing AND mounted to avoid SSR hydration issues with animation classes.
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
-          {/* Always render SVG structure. Animation controlled by client-side state. */}
+          {/* SVG structure for loader */}
           <svg
             className={cn(
               "h-16 w-16 text-primary mx-auto",
-              { 'animate-spin': showAnimatedLoader } 
+              { 'animate-spin': showAnimatedLoader } // Rely on showAnimatedLoader which is now just isInitializing
             )}
             viewBox="0 0 24 24"
             fill="none"
@@ -297,7 +303,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
           </svg>
           <h1 className="text-2xl font-bold text-primary">{t('appTitle')}</h1>
           <p className="text-muted-foreground">{t('authForm.loadingPage')}</p>
-          {/* Conditional class for pulse animation on placeholders */}
+          {/* Placeholder divs for animation */}
           <div className={cn("h-8 w-3/4 mx-auto bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
           <div className={cn("h-6 w-1/2 mx-auto bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
           <div className={cn("h-10 w-full mt-4 bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
@@ -305,6 +311,23 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       </div>
     );
   }
+  // Fallback for SSR or if not mounted yet but still initializing (less ideal, but avoids hydration diff)
+  if (isInitializing && !isMounted) {
+     return (
+      <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
+        <div className="space-y-4 p-8 rounded-lg shadow-xl bg-card w-full max-w-md text-center">
+            {/* Non-animated placeholder for SSR/pre-mount */}
+            <div className="h-16 w-16 mx-auto bg-muted rounded-md" data-ai-hint="ceramic tile placeholder"></div>
+            <h1 className="text-2xl font-bold text-primary">{t('appTitle')}</h1>
+            <p className="text-muted-foreground">{t('authForm.loadingPage')}</p>
+            <div className="h-8 w-3/4 mx-auto bg-muted rounded-md" />
+            <div className="h-6 w-1/2 mx-auto bg-muted rounded-md" />
+            <div className="h-10 w-full mt-4 bg-muted rounded-md" />
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <AuthContext.Provider value={{ user, loading, isInitializing, login, register, logout }}>
@@ -321,23 +344,18 @@ export const useAuth = () => {
   return context;
 };
 
-// Global function to register a Firestore unsubscriber
-// This will be called by components that set up Firestore listeners
 export const registerFirestoreUnsubscriber = (unsubscriber: (() => void) | null) => {
-  // If the new unsubscriber is the same as the current one, do nothing
   if (firestoreUnsubscribeGlobal === unsubscriber) return;
 
-  // If there's an existing global unsubscriber, call it before replacing
   if (firestoreUnsubscribeGlobal) {
-    console.log("AuthContext: Clearing previous global Firestore unsubscriber.");
+    console.log("AuthContext: Clearing previous global Firestore unsubscriber via registerFirestoreUnsubscriber.");
     firestoreUnsubscribeGlobal();
   }
   
-  firestoreUnsubscribeGlobal = unsubscriber; // Set the new unsubscriber
+  firestoreUnsubscribeGlobal = unsubscriber;
   if (unsubscriber) {
-    console.log("AuthContext: Registered new global Firestore unsubscriber.");
+    console.log("AuthContext: Registered new global Firestore unsubscriber via registerFirestoreUnsubscriber.");
   } else {
-    // This case means the listener was cleared or the component unmounted
-    console.log("AuthContext: Cleared global Firestore unsubscriber (set to null).");
+    console.log("AuthContext: Cleared global Firestore unsubscriber (set to null) via registerFirestoreUnsubscriber.");
   }
 };

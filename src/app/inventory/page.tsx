@@ -1,18 +1,18 @@
-
 'use client';
 
 import type { FC } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import TileForm, { createInitialDefaultFormValues, type TileFormData, typeConfig } from '@/components/TileForm';
+import TileForm, { type TileFormData } from '@/components/TileForm';
+import {typeConfig, createInitialDefaultFormValues} from '@/components/TileForm';
 import TileList from '@/components/TileList';
-import type { GroupedDisplayTile, FirebaseTileDoc, TileVariantDisplay } from '@/types';
+import type { GroupedDisplayTile, FirebaseTileDoc } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/context/i18n';
 import { getFirebaseInstances } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch, where, getDocs, FirestoreError } from 'firebase/firestore';
 import { useAuth, registerFirestoreUnsubscriber } from '@/context/AuthContext';
 
 
@@ -29,16 +29,18 @@ const InventoryPage: FC = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
+    let localUnsubscribe: (() => void) | null = null;
+  
     if (isInitializing || !user) {
-      // Wait for auth to initialize or user to be available
-      // If no user, AuthContext/layout should redirect
-      if (!isInitializing && !user) setIsLoading(false); // Stop loading if auth is done and no user
+      setIsLoading(false);
+      setTiles([]); 
+      setError(null);
+      // Cleanup for previous effect run if user became null or isInitializing became true
+      // This is handled by the return function of useEffect
       return;
     }
-
+  
     setIsLoading(true);
-    let unsubscribe: (() => void) | null = null;
-
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
@@ -47,8 +49,8 @@ const InventoryPage: FC = () => {
         }
         const tilesCollection = collection(db, 'tiles');
         const q = query(tilesCollection, orderBy('createdAt', 'desc'));
-
-        unsubscribe = onSnapshot(q, (querySnapshot) => {
+  
+        localUnsubscribe = onSnapshot(q, (querySnapshot) => {
           const fetchedTiles: FirebaseTileDoc[] = [];
           querySnapshot.forEach((doc) => {
             fetchedTiles.push({ id: doc.id, ...doc.data() } as FirebaseTileDoc);
@@ -56,29 +58,47 @@ const InventoryPage: FC = () => {
           setTiles(fetchedTiles);
           setIsLoading(false);
           setError(null);
-        }, (err) => {
-          console.error("Error fetching tiles:", err);
-          setError(t('errorMessages.fetchErrorDescription'));
+        }, (err: FirestoreError) => {
+          console.error("Error fetching tiles:", err.code, err.message);
+          // Check if the user object (from the closure of this effect) was present when the listener was set up.
+          // This helps differentiate between a normal fetch error and a permission error due to logout.
+          if (user) { 
+            if (err.code === 'permission-denied') {
+              // If permission is denied, it's likely due to logout. Suppress user-facing toast.
+              console.warn("Firestore permission denied. This might be due to logout. Suppressing fetch error toast.");
+              // Optionally, clear tiles and set a soft error message if needed, but generally,
+              // the app will redirect, making a persistent error message unnecessary.
+              setTiles([]); // Clear tiles as access is lost
+            } else {
+              // For other errors, show the toast.
+              setError(t('errorMessages.fetchErrorDescription'));
+              toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: 'destructive' });
+            }
+          }
           setIsLoading(false);
-          toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: 'destructive' });
         });
-        registerFirestoreUnsubscriber(unsubscribe); // Register for cleanup on logout
+        registerFirestoreUnsubscriber(localUnsubscribe); 
       } catch (e) {
         console.error("Firestore setup error:", e);
         setError(t('errorMessages.fetchErrorDescription'));
         setIsLoading(false);
-        toast({ title: t('errorMessages.fetchErrorTitle'), description: (e as Error).message, variant: 'destructive' });
-         registerFirestoreUnsubscriber(null);
+        if (user) { // Only toast if we expected to fetch
+           toast({ title: t('errorMessages.fetchErrorTitle'), description: (e as Error).message, variant: 'destructive' });
+        }
+        registerFirestoreUnsubscriber(null);
       }
     };
-
+  
     setupFirestoreListener();
-
+  
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-        registerFirestoreUnsubscriber(null); // Clear global reference on component unmount
+      if (localUnsubscribe) {
+        localUnsubscribe();
+        console.log('InventoryPage: Local Firestore listener unsubscribed.');
       }
+      // When the component unmounts or dependencies change leading to cleanup,
+      // ensure the global unsubscriber reference is also cleared if this instance set it.
+      registerFirestoreUnsubscriber(null); 
     };
   }, [user, isInitializing, t, toast]);
 
@@ -86,7 +106,7 @@ const InventoryPage: FC = () => {
   const groupedTilesData = useMemo((): GroupedDisplayTile[] => {
     const groups: Record<string, GroupedDisplayTile> = {};
     tiles.forEach(tile => {
-      const prefix = tile.modelNumberPrefix || "N/A"; // Ensure prefix is never undefined for key
+      const prefix = tile.modelNumberPrefix || "N/A"; 
       const groupKey = `${prefix}_${tile.width}x${tile.height}`;
       
       if (!groups[groupKey]) {
@@ -125,10 +145,10 @@ const InventoryPage: FC = () => {
         modelNumberPrefix: editingTileGroup.modelNumberPrefix === "N/A" ? undefined : editingTileGroup.modelNumberPrefix,
         width: editingTileGroup.width,
         height: editingTileGroup.height,
-        quantity: undefined, // Global quantity not used when types are present for a group
+        quantity: undefined, 
       };
       typeConfig.forEach(sf => {
-        const variant = editingTileGroup.variants.find(v => v.typeSuffix === sf.label || (sf.label === t('noTypeSuffix') && v.typeSuffix === ""));
+        const variant = editingTileGroup.variants.find(v => v.typeSuffix === sf.label || (sf.label === t('noTypeSuffix') && v.typeSuffix === t('noTypeSuffix')));
         formData[sf.name] = !!variant;
         formData[sf.quantityName] = variant ? variant.quantity : undefined;
       });
@@ -151,7 +171,6 @@ const InventoryPage: FC = () => {
         const variantsToProcess: Array<Partial<FirebaseTileDoc> & { originalId?: string }> = [];
         let anyVariantProcessed = false;
 
-        // Case 1: Types are selected
         const checkedTypes = typeConfig.filter(sf => data[sf.name]);
         if (checkedTypes.length > 0) {
             for (const type of checkedTypes) {
@@ -168,11 +187,10 @@ const InventoryPage: FC = () => {
                 }
             }
         } 
-        // Case 2: No types selected, but prefix and global quantity exist (base model)
         else if (modelPrefixToSave !== "N/A" && data.quantity !== undefined && data.quantity > 0) {
              variantsToProcess.push({
                 modelNumberPrefix: modelPrefixToSave,
-                typeSuffix: "", // Empty string for base model
+                typeSuffix: "", 
                 width: data.width,
                 height: data.height,
                 quantity: data.quantity,
@@ -187,22 +205,19 @@ const InventoryPage: FC = () => {
         }
 
         if (formMode === 'edit' && editingTileGroup) {
-            // In edit mode, we need to find existing documents to update or delete, and add new ones.
             const existingVariants = editingTileGroup.variants;
             const variantsInFormMap = new Map(variantsToProcess.map(v => [v.typeSuffix, v]));
 
-            // Update existing or add new
             for (const variantData of variantsToProcess) {
                 const existingVariant = existingVariants.find(ev => ev.typeSuffix === variantData.typeSuffix || (variantData.typeSuffix === "" && ev.typeSuffix === t('noTypeSuffix')));
-                if (existingVariant) { // Update
+                if (existingVariant) { 
                     const docRef = doc(db, 'tiles', existingVariant.id);
                     batch.update(docRef, { ...variantData, updatedAt: now });
-                } else { // Add new
+                } else { 
                     const docRef = doc(collection(db, 'tiles'));
                     batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now });
                 }
             }
-            // Delete variants that were in the group but are no longer in the form
             for (const existing of existingVariants) {
                  const typeSuffixInForm = existing.typeSuffix === t('noTypeSuffix') ? "" : existing.typeSuffix;
                 if (!variantsInFormMap.has(typeSuffixInForm)) {
@@ -211,7 +226,7 @@ const InventoryPage: FC = () => {
                 }
             }
             toast({ title: t('toastGroupUpdatedTitle'), description: t('toastGroupUpdatedDescription', {modelNumberPrefix: editingTileGroup.modelNumberPrefix }) });
-        } else { // Add mode
+        } else { 
             const modelNumbersAdded: string[] = [];
             for (const variantData of variantsToProcess) {
                 const docRef = doc(collection(db, 'tiles'));
@@ -273,10 +288,32 @@ const InventoryPage: FC = () => {
     setIsFormOpen(true);
   };
 
-  if (isInitializing) {
+  if (isInitializing && !user) { // Show full page loader only if initializing and no user yet
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+        <div className="flex items-center justify-center mb-6">
+           <svg
+            className="h-16 w-16 text-primary animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            data-ai-hint="ceramic tile"
+          >
+            <path d="M3 3h7v7H3z" />
+            <path d="M14 3h7v7h-7z" />
+            <path d="M3 14h7v7H3z" />
+            <path d="M14 14h7v7h-7z" />
+          </svg>
+        </div>
+        <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
+        <p className="text-muted-foreground mb-6">{t('authForm.loadingPage')}</p>
+        <div className="w-full max-w-xs space-y-3">
+          <div className="h-10 w-full bg-muted rounded-md animate-pulse" />
+          <div className="h-6 w-3/4 mx-auto bg-muted rounded-md animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -287,7 +324,7 @@ const InventoryPage: FC = () => {
         <h2 className="text-2xl font-semibold tracking-tight">{t('tileListCardTitle')}</h2>
         <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
-            if (!isOpen) setEditingTileGroup(null); // Reset editing state when dialog closes
+            if (!isOpen) setEditingTileGroup(null); 
         }}>
           <DialogTrigger asChild>
             <Button onClick={handleOpenAddDialog}>
@@ -303,7 +340,6 @@ const InventoryPage: FC = () => {
                 {formMode === 'edit' ? t('tileFormCardDescriptionEditGroup') : t('tileFormCardDescriptionAdd')}
               </DialogDescription>
             </DialogHeader>
-            {/* Scrollable Area for Form Content */}
              <div className="flex-grow overflow-y-auto px-1 pb-6 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                 <TileForm
                     onSaveTile={handleSaveTile}
@@ -313,7 +349,7 @@ const InventoryPage: FC = () => {
                         setEditingTileGroup(null);
                     }}
                     isEditMode={formMode === 'edit'}
-                    isGroupEdit={formMode === 'edit'} // For TileForm, editing a group is the only edit mode now
+                    isGroupEdit={formMode === 'edit'} 
                 />
             </div>
 
@@ -321,7 +357,7 @@ const InventoryPage: FC = () => {
         </Dialog>
       </div>
 
-      {isLoading && !tiles.length ? (
+      {isLoading && !tiles.length && user ? ( // Show skeleton only if loading, no tiles yet, and user is present
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
              <div key={i} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-3 animate-pulse">

@@ -117,9 +117,16 @@ const InventoryPage: FC = () => {
         };
       }
 
+      // Find the corresponding typeConfig entry for the tile's typeSuffix (which is a key from Firestore)
+      const typeConfigEntry = typeConfig.find(tc => tc.key === tile.typeSuffix);
+      // Use the label for displayTypeSuffix if a match is found, otherwise use the key (or "Base Model" for empty suffix)
+      const displayTypeSuffix = tile.typeSuffix === "" 
+        ? t('noTypeSuffix') 
+        : (typeConfigEntry ? typeConfigEntry.label : tile.typeSuffix);
+
       groups[groupKey].variants.push({
         id: tile.id,
-        typeSuffix: tile.typeSuffix === "" ? t('noTypeSuffix') : tile.typeSuffix,
+        typeSuffix: displayTypeSuffix, // This will now be "L", "D", "HL-1", "HL-3", etc. or t('noTypeSuffix')
         quantity: tile.quantity,
         createdAt: tile.createdAt?.toDate()
       });
@@ -138,13 +145,15 @@ const InventoryPage: FC = () => {
 
   const initialFormValues = useMemo(() => {
     if (formMode === 'edit' && editingTileGroup) {
-      const formData: Partial<TileFormData> = { // Use Partial here
+      const formData: Partial<TileFormData> = { 
         modelNumberPrefix: editingTileGroup.modelNumberPrefix === "N/A" ? undefined : editingTileGroup.modelNumberPrefix,
         width: editingTileGroup.width,
         height: editingTileGroup.height,
         quantity: undefined, 
       };
       typeConfig.forEach(sf => {
+        // sf.label is "L", "HL-1", "HL-3" etc.
+        // editingTileGroup.variants[x].typeSuffix is now also "L", "HL-1", "HL-3" etc. (or t('noTypeSuffix'))
         const variant = editingTileGroup.variants.find(v => v.typeSuffix === sf.label || (sf.label === t('noTypeSuffix') && v.typeSuffix === t('noTypeSuffix')));
         formData[sf.name] = !!variant;
         formData[sf.quantityName] = variant ? variant.quantity : undefined;
@@ -170,12 +179,12 @@ const InventoryPage: FC = () => {
 
         const checkedTypes = typeConfig.filter(sf => data[sf.name as keyof TileFormData]);
         if (checkedTypes.length > 0) {
-            for (const type of checkedTypes) {
+            for (const type of checkedTypes) { // type here is an element from typeConfig
                 const quantityForType = data[type.quantityName as keyof TileFormData];
                 if (quantityForType !== undefined && quantityForType > 0) {
                     variantsToProcess.push({
                         modelNumberPrefix: modelPrefixToSave,
-                        typeSuffix: type.key,
+                        typeSuffix: type.key, // Saves the key (e.g. "HL1", "HL3") to Firestore
                         width: data.width,
                         height: data.height,
                         quantity: quantityForType,
@@ -202,22 +211,26 @@ const InventoryPage: FC = () => {
         }
 
         if (formMode === 'edit' && editingTileGroup) {
-            const existingVariants = editingTileGroup.variants;
-            const variantsInFormMap = new Map(variantsToProcess.map(v => [v.typeSuffix, v]));
+            const existingVariants = editingTileGroup.variants; // These have typeSuffix as label (e.g., "HL-1")
+            const variantsInFormMap = new Map(variantsToProcess.map(v => [v.typeSuffix, v])); // v.typeSuffix is key (e.g. "HL1")
 
-            for (const variantData of variantsToProcess) {
-                const existingVariant = existingVariants.find(ev => ev.typeSuffix === variantData.typeSuffix || (variantData.typeSuffix === "" && ev.typeSuffix === t('noTypeSuffix')));
+            for (const variantData of variantsToProcess) { // variantData.typeSuffix is key
+                const correspondingTypeConfig = typeConfig.find(tc => tc.key === variantData.typeSuffix);
+                const labelForMatching = correspondingTypeConfig ? correspondingTypeConfig.label : (variantData.typeSuffix === "" ? t('noTypeSuffix') : variantData.typeSuffix);
+
+                const existingVariant = existingVariants.find(ev => ev.typeSuffix === labelForMatching);
+
                 if (existingVariant) { 
                     const docRef = doc(db, 'tiles', existingVariant.id);
-                    batch.update(docRef, { ...variantData, updatedAt: now });
+                    batch.update(docRef, { ...variantData, updatedAt: now }); // variantData has key as typeSuffix
                 } else { 
                     const docRef = doc(collection(db, 'tiles'));
-                    batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now });
+                    batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now }); // variantData has key
                 }
             }
-            for (const existing of existingVariants) {
-                 const typeSuffixInForm = existing.typeSuffix === t('noTypeSuffix') ? "" : existing.typeSuffix;
-                if (!variantsInFormMap.has(typeSuffixInForm)) {
+            for (const existing of existingVariants) { // existing.typeSuffix is label or t('noTypeSuffix')
+                 const keyInForm = typeConfig.find(tc => tc.label === existing.typeSuffix)?.key ?? (existing.typeSuffix === t('noTypeSuffix') ? "" : null);
+                if (keyInForm === null || !variantsInFormMap.has(keyInForm)) {
                     const docRef = doc(db, 'tiles', existing.id);
                     batch.delete(docRef);
                 }
@@ -225,10 +238,11 @@ const InventoryPage: FC = () => {
             toast({ title: t('toastGroupUpdatedTitle'), description: t('toastGroupUpdatedDescription', {modelNumberPrefix: editingTileGroup.modelNumberPrefix }) });
         } else { 
             const modelNumbersAdded: string[] = [];
-            for (const variantData of variantsToProcess) {
+            for (const variantData of variantsToProcess) { // variantData.typeSuffix is key
                 const docRef = doc(collection(db, 'tiles'));
                 batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now });
-                modelNumbersAdded.push(`${variantData.modelNumberPrefix !== "N/A" ? variantData.modelNumberPrefix + "-" : ""}${variantData.typeSuffix || "Base"}`);
+                const labelForDisplay = typeConfig.find(tc => tc.key === variantData.typeSuffix)?.label ?? "Base";
+                modelNumbersAdded.push(`${variantData.modelNumberPrefix !== "N/A" ? variantData.modelNumberPrefix + "-" : ""}${labelForDisplay}`);
             }
              toast({ title: t('toastTileAddedTitle'), description: t('toastTilesAddedDescription', { count: modelNumbersAdded.length.toString(), modelNumbers: modelNumbersAdded.join(', ') }) });
         }

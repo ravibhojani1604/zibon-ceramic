@@ -22,7 +22,7 @@ import { PlusCircle, Edit3, XCircle, Edit } from "lucide-react";
 import { useTranslation } from '@/context/i18n';
 
 
-const typeConfig = [
+export const typeConfig = [
   { key: "L" as const, name: "type_L" as const, label: "L", quantityName: "quantity_L" as const },
   { key: "D" as const, name: "type_D" as const, label: "D", quantityName: "quantity_D" as const },
   { key: "HL1" as const, name: "type_HL1" as const, label: "HL-1", quantityName: "quantity_HL1" as const },
@@ -457,4 +457,5 @@ export default TileForm;
     
 
     
+
 

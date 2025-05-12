@@ -1,3 +1,4 @@
+
 'use client';
 
 import AuthForm from '@/components/AuthForm';
@@ -32,7 +33,7 @@ export default function LoginPage() {
          <div className="flex items-center justify-center mb-6">
            <svg
             className={cn(
-              "h-16 w-16 text-primary",
+              "h-12 w-12 sm:h-16 sm:w-16 text-primary", // Adjusted size
               { 'animate-spin': clientMounted && isInitializing }
             )}
             viewBox="0 0 24 24"
@@ -49,7 +50,7 @@ export default function LoginPage() {
             <path d="M14 14h7v7h-7z" />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1> {/* Adjusted size */}
         <p className="text-muted-foreground mb-6">{isInitializing ? t('authForm.loadingPage') : t('authForm.loadingRedirect')}</p>
         <div className="w-full max-w-xs space-y-3 mx-auto">
           <div className={cn("h-10 w-full bg-muted rounded-md", { 'animate-pulse': clientMounted && isInitializing })} />
@@ -69,7 +70,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center mb-4">
             <svg
-              className="h-12 w-12 text-primary"
+              className="h-10 w-10 sm:h-12 sm:w-12 text-primary" // Decreased logo size
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -84,7 +85,7 @@ export default function LoginPage() {
               <path d="M14 14h7v7h-7z" />
             </svg>
           </div>
-          <CardTitle className="text-2xl font-bold">{t('authForm.loginTitle')}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-bold">{t('authForm.loginTitle')}</CardTitle> {/* Adjusted size */}
           <CardDescription>{t('authForm.loginDescription')}</CardDescription>
         </CardHeader>
         <AuthForm isRegister={false} onSubmit={login} loading={authOperationLoading} />
@@ -95,3 +96,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

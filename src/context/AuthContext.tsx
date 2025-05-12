@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode, FC } from 'react';
@@ -66,29 +67,16 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       let errorMessage: string;
       const currentActionType = actionType;
 
-      if ('code' in error && typeof error.code === 'string') { // Firebase AuthError
+      if ('code' in error && typeof error.code === 'string') { 
         errorCode = error.code;
         errorMessage = error.message; 
-      } else { // Generic Error
+      } else { 
         errorMessage = error.message;
       }
-
-      // Construct a detailed log message
-      let logOutput = `${currentActionType} ${actionType === 'logout' ? 'process' : 'attempt'} resulted in an error.`;
-      if (errorCode) {
-        logOutput += ` Firebase Code: ${errorCode}.`;
-      }
-      logOutput += ` Message: ${errorMessage}`;
-
-      // Log as warning for common user-input errors, error for others
-      if (errorCode === 'auth/invalid-credential' ||
-          errorCode === 'auth/user-not-found' ||
-          errorCode === 'auth/wrong-password') {
-        console.warn(logOutput);
-      } else {
-        console.error(logOutput);
-      }
       
+      console.error(`${currentActionType} error:`, errorCode ? `Code: ${errorCode},` : '', `Message: ${errorMessage}`);
+
+
       let errorDescriptionKeySuffix: string;
       let defaultMessage = t(`authForm.${currentActionType}FailedDefaultError`, { code: errorCode || 'UNKNOWN' });
 
@@ -191,8 +179,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             setUser(null);
             setIsInitializing(false);
             safeUnsubscribeFirestore();
-            if (error.code !== 'auth/network-request-failed') { // Avoid toast for common network issues on listener itself
-                handleAuthError(error, 'logout'); // Treat listener errors as potential logout scenarios
+            if (error.code !== 'auth/network-request-failed') { 
+                handleAuthError(error, 'logout'); 
             }
           }
         );
@@ -221,8 +209,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         authStateUnsubscribeGlobal = null; 
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientMounted, router, pathname, t]); // Removed handleAuthError from deps as it's stable with useCallback
+  }, [clientMounted, router, pathname, t, handleAuthError]); 
 
   const login = useCallback(
     async (data: AuthFormData) => {
@@ -235,7 +222,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
-        // No direct navigation here; onAuthStateChanged will handle it.
       } catch (error) {
         handleAuthError(error as AuthError, 'login');
       } finally {
@@ -256,8 +242,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
         await createUserWithEmailAndPassword(auth, data.email, data.password);
         
-        // Explicitly sign out the newly registered user.
-        // This ensures they are redirected to login and onAuthStateChanged correctly picks up no user.
         await signOut(auth); 
 
         toast({ title: t('authForm.registerSuccessTitle'), description: t('authForm.registerSuccessRedirectLoginDescription') });
@@ -281,11 +265,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const { auth } = await getFirebaseInstances(); 
       if (auth && auth.currentUser) { 
         await signOut(auth); 
-        // User state will be set to null by onAuthStateChanged
         toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
-        // onAuthStateChanged will handle redirect to /login
       } else {
-        // If no user or auth not available, ensure local state is cleared and redirect.
         setUser(null); 
         if (pathname !== '/login' && !pathname.startsWith('/_next')) router.replace('/login'); 
         console.log('AuthContext: No current user to sign out or auth not available, cleared local state and redirected.');
@@ -293,7 +274,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     } catch (error) {
       console.error('AuthContext: Error during logout process:', error);
       handleAuthError(error as AuthError, 'logout');
-      setUser(null); // Ensure user is cleared locally
+      setUser(null); 
       if (pathname !== '/login' && !pathname.startsWith('/_next')) router.replace('/login'); 
     } finally {
       setAuthOperationLoading(false);
@@ -302,13 +283,13 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   
   const showAnimatedLoader = isInitializing && clientMounted;
 
-  if (isInitializing && clientMounted) { // Only show loader if client mounted and still initializing
+  if (showAnimatedLoader) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
-           <svg
+          <svg
             className={cn(
-              "h-16 w-16 text-primary",
+              "h-12 w-12 sm:h-16 sm:w-16 text-primary", // Adjusted size
               { 'animate-spin': showAnimatedLoader } 
             )}
             viewBox="0 0 24 24"
@@ -325,7 +306,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             <path d="M14 14h7v7h-7z" />
           </svg>
         </div>
-        <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1> {/* Adjusted size */}
         <p className="text-muted-foreground mb-6">{t('authForm.loadingPage')}</p>
         <div className="w-full max-w-xs space-y-3 mx-auto">
           <div className={cn("h-10 w-full bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
@@ -334,10 +315,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       </div>
     );
   }
-  // If not clientMounted yet, or if initialization is done but no user (and not on public page), render null or minimal.
-  // This helps prevent rendering UI that depends on auth state too early or incorrectly.
+
   if (!clientMounted || (isInitializing && !clientMounted)) {
-      return null; // Or a very minimal non-interactive placeholder
+      return null; 
   }
 
 
@@ -368,3 +348,4 @@ export const registerFirestoreUnsubscriber = (unsubscriber: (() => void) | null)
     console.log("AuthContext: Cleared global Firestore unsubscriber (set to null).");
   }
 };
+

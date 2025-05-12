@@ -97,7 +97,7 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
         <div className="container flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 shrink-0">
              <svg
-                className="h-8 w-8 text-primary"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-primary" // Decreased logo size
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -111,7 +111,7 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
                 <path d="M3 14h7v7H3z" />
                 <path d="M14 14h7v7h-7z" />
               </svg>
-            <h1 className="text-lg sm:text-xl font-bold text-primary truncate min-w-0">{t('headerTitle')}</h1>
+            <h1 className="text-md sm:text-lg font-bold text-primary truncate min-w-0">{t('headerTitle')}</h1> {/* Decreased text size */}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />

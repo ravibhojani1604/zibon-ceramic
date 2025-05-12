@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -16,6 +17,7 @@ import {
   type DocumentSnapshot,
   type Query,
   type FirestoreError,
+  query, // Keep this import
 } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getFirebaseInstances } from '@/lib/firebase';
@@ -64,7 +66,9 @@ export const usePaginatedTiles = (): UsePaginatedTilesReturn => {
     try {
       const { db } = await getFirebaseInstances();
       const tilesCollectionRef = collection(db, 'tiles');
-      const snapshot = await getDocs(tilesCollectionRef);
+      // Apply query only if user.uid is available, else it's a global query
+      const q = user.uid ? query(tilesCollectionRef, orderBy('userId'), orderBy('createdAt', 'desc')) : query(tilesCollectionRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
       setTotalTileDocs(snapshot.size);
     } catch (err: any) {
       console.error("Error fetching total tile count:", err);
@@ -91,41 +95,39 @@ export const usePaginatedTiles = (): UsePaginatedTilesReturn => {
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
-        const tilesCollectionRef = collection(db, 'tiles');
-        let q: Query;
+        let firestoreQuery: Query; // Renamed from q to firestoreQuery
 
         const baseQuery = collection(db, 'tiles');
-        const orderConstraints = [orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc')];
+        // Add a userId filter if user.uid is present
+        const userSpecificConstraints = user.uid ? [orderBy('userId'), orderBy('createdAt', 'desc')] : [orderBy('createdAt', 'desc')];
+        const orderConstraints = user.uid 
+            ? [orderBy('userId'), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc')] 
+            : [orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc')];
 
 
         if (queryDirection === 'initial') {
-          q = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
+          firestoreQuery = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
           setPageCursors([null]); // Reset cursors for initial load
         } else if (queryDirection === 'next' && lastVisibleDoc) {
-          q = query(baseQuery, ...orderConstraints, startAfter(lastVisibleDoc), limit(itemsPerPage));
+          firestoreQuery = query(baseQuery, ...orderConstraints, startAfter(lastVisibleDoc), limit(itemsPerPage));
         } else if (queryDirection === 'prev' && currentPage > 1 && pageCursors[currentPage -1]) {
-           // For 'prev', we use endBefore with the first document of the current page's cursor (which is pageCursors[currentPage])
-           // Or, if going to page 1, we don't need a cursor.
-           // The cursor for start of page 'N' is stored at pageCursors[N-1]
-           // The cursor for start of page 'currentPage' is pageCursors[currentPage-1]
-           // So to go to 'currentPage-1', we need to endBefore pageCursors[currentPage-1]
-           const cursorForEndOfPrevPage = pageCursors[currentPage-1]; // This is the first doc of current page
+           const cursorForEndOfPrevPage = pageCursors[currentPage-1]; 
            if (cursorForEndOfPrevPage) {
-             q = query(baseQuery, ...orderConstraints, endBefore(cursorForEndOfPrevPage), limitToLast(itemsPerPage));
-           } else { // Should not happen if currentPage > 1 and pageCursors is managed well
-             q = query(baseQuery, ...orderConstraints, limit(itemsPerPage)); // fallback to page 1
+             firestoreQuery = query(baseQuery, ...orderConstraints, endBefore(cursorForEndOfPrevPage), limitToLast(itemsPerPage));
+           } else { 
+             firestoreQuery = query(baseQuery, ...orderConstraints, limit(itemsPerPage)); 
            }
         } else if (queryDirection === 'prev' && currentPage === 1) {
-          q = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
+          firestoreQuery = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
           setPageCursors([null]);
         }
-         else { // Fallback or trying to go to page 1
-          q = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
-          if (currentPage !== 1 && queryDirection !== 'initial') setCurrentPage(1); // Ensure current page is 1
+         else { 
+          firestoreQuery = query(baseQuery, ...orderConstraints, limit(itemsPerPage));
+          if (currentPage !== 1 && queryDirection !== 'initial') setCurrentPage(1); 
           setPageCursors([null]);
         }
 
-        unsubscribe = onSnapshot(q, (querySnapshot) => {
+        unsubscribe = onSnapshot(firestoreQuery, (querySnapshot) => { // Use firestoreQuery here
           const fetchedTiles: FirebaseTileDoc[] = [];
           querySnapshot.forEach((docSnap) => {
             fetchedTiles.push({ id: docSnap.id, ...docSnap.data() } as FirebaseTileDoc);
@@ -142,25 +144,14 @@ export const usePaginatedTiles = (): UsePaginatedTilesReturn => {
             if (queryDirection === 'next') {
                 setPageCursors(prev => {
                     const newCursors = [...prev];
-                    newCursors[currentPage] = newFirstVisible; // Store first doc of the NEW current page
+                    newCursors[currentPage] = newFirstVisible; 
                     return newCursors;
                 });
             } else if (queryDirection === 'initial' || currentPage === 1) {
-                setPageCursors([null, newFirstVisible]); // Page 1 starts with null, page 2 starts with newFirstVisible
+                setPageCursors([null, newFirstVisible]); 
             }
-            // For 'prev', pageCursors are already set for previous pages. We are landing on currentPage-1.
-            // The firstVisibleDoc of this page is now newFirstVisible.
-            // The cursor for *this* page (which is now `currentPage`) should be `pageCursors[currentPage-1]`.
-
           } else {
-            // Current page is empty
-            if (queryDirection === 'next') {
-              // Tried to go next, but no more items. current lastVisibleDoc is still valid for the actual last item.
-              // No new lastVisibleDoc for an empty page.
-            } else if (queryDirection === 'prev') {
-              // Tried to go prev, but no items.
-            }
-             if (currentPage === 1 && (queryDirection === 'initial' || querySnapshot.empty)) {
+            if (currentPage === 1 && (queryDirection === 'initial' || querySnapshot.empty)) {
                 setFirstVisibleDoc(null);
                 setLastVisibleDoc(null);
                 setPageCursors([null]);
@@ -190,29 +181,32 @@ export const usePaginatedTiles = (): UsePaginatedTilesReturn => {
         unsubscribe();
       }
     };
-  }, [user, currentPage, itemsPerPage, queryDirection, t, toast]); // Removed pageCursors from deps to avoid loops, manage it carefully
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentPage, itemsPerPage, queryDirection, t, toast]); // pageCursors removed from deps
 
   const handlePageChange = useCallback((newPage: number, direction: 'next' | 'prev' | 'initial') => {
-    // Prevent unnecessary state updates if already on the target page (unless it's an initial call)
     if (newPage === currentPage && direction !== 'initial' && queryDirection === direction) return;
 
     setQueryDirection(direction);
     setCurrentPage(newPage);
-    setIsLoading(true); // Set loading true immediately for page change
+    setIsLoading(true); 
   }, [currentPage, queryDirection]);
 
   const handleItemsPerPageChange = useCallback((newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page
-    setQueryDirection('initial'); // Trigger initial fetch logic
-    setLastVisibleDoc(null); // Reset cursors
+    setCurrentPage(1); 
+    setQueryDirection('initial'); 
+    setLastVisibleDoc(null); 
     setFirstVisibleDoc(null);
-    setPageCursors([null]); // Reset page cursors
+    setPageCursors([null]); 
     setIsLoading(true);
   }, []);
   
   const isFirstPage = currentPage === 1;
-  const isLastPage = tiles.length < itemsPerPage || (totalTileDocs > 0 && (currentPage * itemsPerPage >= totalTileDocs));
+  // Determine isLastPage more accurately:
+  // It's the last page if fewer items than itemsPerPage are loaded,
+  // OR if the total count is known and current items reach or exceed it.
+  const isLastPage = (tiles.length > 0 && tiles.length < itemsPerPage) || (totalTileDocs > 0 && (currentPage * itemsPerPage >= totalTileDocs));
 
 
   return {
@@ -230,3 +224,4 @@ export const usePaginatedTiles = (): UsePaginatedTilesReturn => {
     setTiles
   };
 };
+

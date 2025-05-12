@@ -28,7 +28,7 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
     }
   }, [user, isInitializing, router]);
 
-  if (isInitializing) {
+  if (isInitializing && clientMounted) {
      return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
@@ -61,13 +61,35 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user) {
+  if (!user && !isInitializing) { // Only try to redirect if not initializing and no user
+    // This case should ideally be handled by the useEffect redirecting to /login
+    // If reached, it means user is null and not initializing, so should be on login page
+    // To prevent rendering content meant for authenticated users before redirect happens:
     return (
          <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-            <p>{t('authForm.loadingRedirect')}</p>
+            <p>{t('authForm.loadingRedirect')}</p> {/* Or a more specific "Redirecting to login..." */}
          </div>
     );
   }
+  
+  // If still initializing but not clientMounted yet, or user is null during initialization (before redirect logic kicks in hard)
+  // render minimal loader or null to avoid showing layout meant for logged-in users
+  if (isInitializing || !user) {
+      return ( // Fallback loader, though AuthContext might show its own
+          <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+            <div className="flex items-center justify-center mb-6">
+              <svg
+                className={cn("h-16 w-16 text-primary", { 'animate-spin': clientMounted })}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" data-ai-hint="ceramic tile">
+                <path d="M3 3h7v7H3z" /><path d="M14 3h7v7h-7z" /><path d="M3 14h7v7H3z" /><path d="M14 14h7v7h-7z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
+            <p className="text-muted-foreground mb-6">{t('authForm.loadingPage')}</p>
+          </div>
+      );
+  }
+
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -89,7 +111,7 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
                 <path d="M3 14h7v7H3z" />
                 <path d="M14 14h7v7h-7z" />
               </svg>
-            <h1 className="text-lg sm:text-xl font-bold text-primary truncate">{t('headerTitle')}</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-primary truncate min-w-0">{t('headerTitle')}</h1>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />

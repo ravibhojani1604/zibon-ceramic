@@ -211,11 +211,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-              <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto">
-                <FileDown className="mr-1 h-4 w-4" /> {t('downloadPDF')}
+              <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+                <FileDown className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('downloadPDF')}
               </Button>
-              <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto">
-                <FileSpreadsheet className="mr-1 h-4 w-4" /> {t('downloadExcel')}
+              <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+                <FileSpreadsheet className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('downloadExcel')}
               </Button>
             </div>
           </div>
@@ -232,9 +232,9 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
               <p>{t('noTilesFoundSearch')}</p>
             </div>
           ) : (
-            <div className="inline-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="inline-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-4">
               {paginatedGroupedTiles.map((group) => (
-                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-[400px]">
+                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-[400px] sm:max-w-xs md:max-w-sm lg:max-w-md">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Box className="text-primary" size={24} aria-label="Box icon"/>
@@ -246,7 +246,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                   </CardHeader>
                   <CardContent className="flex-grow pt-0 pb-3 px-4 flex flex-col items-center space-y-2">
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm w-full max-w-xs"> {/* Added w-full and max-w-xs for centering effect */}
+                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm w-full max-w-xs"> 
                         <div className="flex justify-between items-center min-w-[150px] gap-4">
                            <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
@@ -259,11 +259,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                     ))}
                   </CardContent>
                    <CardFooter className="pt-3 border-t flex flex-col gap-2 sm:flex-row sm:justify-end sm:space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => onEditGroup(group)} className="w-full sm:w-auto">
-                        <Edit className="mr-1 h-4 w-4" /> {t('editGroupButton')}
+                      <Button variant="outline" size="sm" onClick={() => onEditGroup(group)} className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+                        <Edit className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('editGroupButton')}
                       </Button>
-                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteGroupClick(group)} className="w-full sm:w-auto">
-                        <Trash className="mr-1 h-4 w-4" /> {t('deleteGroupButton')}
+                      <Button variant="destructiveOutline" size="sm" onClick={() => handleDeleteGroupClick(group)} className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+                        <Trash className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('deleteGroupButton')}
                       </Button>
                   </CardFooter>
                 </Card>
@@ -340,3 +340,4 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+

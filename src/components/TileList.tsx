@@ -244,10 +244,10 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                       <Ruler size={14} /> {t('tileCardDimensionsLabel', { width: group.width.toString(), height: group.height.toString() })}
                     </p>
                   </CardHeader>
-                  <CardContent className="flex-grow pt-0 pb-3 px-4 space-y-2"> {/* Reduced space-y */}
+                  <CardContent className="flex-grow pt-0 pb-3 px-4 flex flex-col items-center space-y-2">
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm"> {/* Reduced p-3 to p-2 */}
-                        <div className="flex justify-between items-center"> {/* Removed mb-1 */}
+                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm">
+                        <div className="flex justify-between items-center min-w-[150px] gap-4">
                            <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
                            </Badge>
@@ -340,6 +340,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+
 
 
 

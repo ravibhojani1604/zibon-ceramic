@@ -22,12 +22,12 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!isInitializing && user) {
+    if (!isInitializing && user && clientMounted) {
       router.replace('/inventory');
     }
-  }, [user, isInitializing, router]);
+  }, [user, isInitializing, router, clientMounted]);
 
-  if (isInitializing || (!isInitializing && user)) {
+  if (isInitializing || (!isInitializing && user && clientMounted)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
          <div className="flex items-center justify-center mb-6">
@@ -62,7 +62,7 @@ export default function LoginPage() {
   
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-      <div className="absolute top-4 right-4 flex gap-2">
+      <div className="absolute top-6 right-6 flex gap-3"> {/* Increased top/right and gap for padding */}
         <LanguageSwitcher />
         <ThemeSwitcher />
       </div>
@@ -96,4 +96,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -111,7 +111,7 @@ export default function InventoryLayout({ children }: { children: ReactNode }) {
                 <path d="M3 14h7v7H3z" />
                 <path d="M14 14h7v7h-7z" />
               </svg>
-            <h1 className="text-md sm:text-lg font-bold text-primary truncate min-w-0">{t('headerTitle')}</h1> {/* Decreased text size */}
+            <h1 className="text-md sm:text-lg font-bold text-primary truncate min-w-0 pr-2">{t('headerTitle')}</h1> {/* Decreased text size and added pr-2 */}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />

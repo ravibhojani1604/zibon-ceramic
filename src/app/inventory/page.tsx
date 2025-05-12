@@ -1,9 +1,9 @@
-
 'use client';
 
 import type { FC } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import TileForm, { type TileFormData, createInitialDefaultFormValues, typeConfig } from '@/components/TileForm';
+import TileForm, { type TileFormData, createInitialDefaultFormValues } from '@/components/TileForm';
+import { typeConfig } from '@/components/TileForm'; // Explicitly import typeConfig
 import TileList from '@/components/TileList';
 import type { GroupedDisplayTile, FirebaseTileDoc } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/context/i18n';
 import { getFirebaseInstances } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch, FirestoreError } from 'firebase/firestore';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  orderBy, 
+  Timestamp, 
+  serverTimestamp, 
+  writeBatch, 
+  FirestoreError,
+  limit,
+  startAfter,
+  endBefore,
+  limitToLast,
+  getCountFromServer,
+  type DocumentSnapshot,
+  type Query
+} from 'firebase/firestore';
 import { useAuth, registerFirestoreUnsubscriber } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { ITEMS_PER_PAGE_OPTIONS } from '@/components/TileList';
 
 
 const InventoryPage: FC = () => {
@@ -27,6 +48,14 @@ const InventoryPage: FC = () => {
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [clientMounted, setClientMounted] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
+  const [totalTileDocs, setTotalTileDocs] = useState(0);
+  const [lastVisibleDoc, setLastVisibleDoc] = useState<DocumentSnapshot | null>(null);
+  const [firstVisibleDoc, setFirstVisibleDoc] = useState<DocumentSnapshot | null>(null);
+  const [queryDirection, setQueryDirection] = useState<'initial' | 'next' | 'prev'>('initial');
+  const [isFetchingPageData, setIsFetchingPageData] = useState(false);
+
 
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -35,6 +64,26 @@ const InventoryPage: FC = () => {
     setClientMounted(true);
   }, []);
 
+  // Effect for initial total count
+  useEffect(() => {
+    if (authIsInitializing || !user) return;
+
+    const fetchTotalCount = async () => {
+      try {
+        const { db } = await getFirebaseInstances();
+        const tilesCollection = collection(db, 'tiles');
+        const countSnapshot = await getCountFromServer(tilesCollection);
+        setTotalTileDocs(countSnapshot.data().count);
+      } catch (e) {
+        console.error("Error fetching total tile count:", e);
+        setError(t('errorMessages.fetchErrorDescription'));
+        toast({ title: t('errorMessages.fetchErrorTitle'), description: (e as Error).message, variant: 'destructive' });
+      }
+    };
+    fetchTotalCount();
+  }, [user, authIsInitializing, t, toast]);
+
+
   useEffect(() => {
     let localUnsubscribe: (() => void) | null = null;
   
@@ -42,18 +91,43 @@ const InventoryPage: FC = () => {
       setIsLoading(false); 
       setTiles([]); 
       setError(null);
+      if (localUnsubscribe) localUnsubscribe();
+      registerFirestoreUnsubscriber(null);
       return;
     }
   
-    setIsLoading(true); 
+    // Only proceed if totalTileDocs is fetched (or it's an explicit page change action)
+    if (totalTileDocs === 0 && queryDirection === 'initial' && currentPage !== 1) {
+       setIsLoading(true); // Waiting for total count before first real fetch
+       return;
+    }
+
+    setIsFetchingPageData(true);
+    // For the very first load, general isLoading is true. For subsequent page fetches, use isFetchingPageData.
+    if (queryDirection === 'initial' && currentPage === 1) setIsLoading(true);
+
+
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
         if (!db) {
           throw new Error("Firestore is not initialized.");
         }
-        const tilesCollection = collection(db, 'tiles');
-        const q = query(tilesCollection, orderBy('createdAt', 'desc'));
+        const tilesCollectionRef = collection(db, 'tiles');
+        let q: Query;
+
+        if (queryDirection === 'initial' || currentPage === 1) {
+          q = query(tilesCollectionRef, orderBy('createdAt', 'desc'), limit(itemsPerPage));
+        } else if (queryDirection === 'next' && lastVisibleDoc) {
+          q = query(tilesCollectionRef, orderBy('createdAt', 'desc'), startAfter(lastVisibleDoc), limit(itemsPerPage));
+        } else if (queryDirection === 'prev' && firstVisibleDoc) {
+          q = query(tilesCollectionRef, orderBy('createdAt', 'desc'), endBefore(firstVisibleDoc), limitToLast(itemsPerPage));
+        } else {
+          // Fallback / edge case: if cursors are missing, default to first page logic
+          console.warn("Pagination cursors missing or invalid direction, defaulting to first page.");
+          q = query(tilesCollectionRef, orderBy('createdAt', 'desc'), limit(itemsPerPage));
+          if (currentPage !== 1) setCurrentPage(1); // Reset to page 1 if cursors lost
+        }
   
         localUnsubscribe = onSnapshot(q, (querySnapshot) => {
           const fetchedTiles: FirebaseTileDoc[] = [];
@@ -61,7 +135,23 @@ const InventoryPage: FC = () => {
             fetchedTiles.push({ id: doc.id, ...doc.data() } as FirebaseTileDoc);
           });
           setTiles(fetchedTiles);
+
+          if (!querySnapshot.empty) {
+            setFirstVisibleDoc(querySnapshot.docs[0]);
+            setLastVisibleDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+          } else {
+            // If the current page is empty
+            if (queryDirection === 'next') setLastVisibleDoc(null); // No more "next"
+            if (queryDirection === 'prev') setFirstVisibleDoc(null); // No more "prev"
+            // If it was an initial load for page 1 and it's empty, both will be null
+            if (currentPage === 1) {
+              setFirstVisibleDoc(null);
+              setLastVisibleDoc(null);
+            }
+          }
+
           setIsLoading(false);
+          setIsFetchingPageData(false);
           setError(null);
         }, (err: FirestoreError) => {
           console.error("Error fetching tiles:", err.code, err.message);
@@ -75,12 +165,14 @@ const InventoryPage: FC = () => {
             }
           }
           setIsLoading(false);
+          setIsFetchingPageData(false);
         });
         registerFirestoreUnsubscriber(localUnsubscribe); 
       } catch (e) {
         console.error("Firestore setup error:", e);
         setError(t('errorMessages.fetchErrorDescription'));
         setIsLoading(false);
+        setIsFetchingPageData(false);
         if (user) { 
            toast({ title: t('errorMessages.fetchErrorTitle'), description: (e as Error).message, variant: 'destructive' });
         }
@@ -97,7 +189,7 @@ const InventoryPage: FC = () => {
       }
       registerFirestoreUnsubscriber(null); 
     };
-  }, [user, authIsInitializing, t, toast]);
+  }, [user, authIsInitializing, t, toast, currentPage, itemsPerPage, queryDirection, totalTileDocs]); // Added queryDirection and totalTileDocs
 
 
   const groupedTilesData = useMemo((): GroupedDisplayTile[] => {
@@ -116,17 +208,14 @@ const InventoryPage: FC = () => {
           groupCreatedAt: tile.createdAt?.toDate()
         };
       }
-
-      // Find the corresponding typeConfig entry for the tile's typeSuffix (which is a key from Firestore)
       const typeConfigEntry = typeConfig.find(tc => tc.key === tile.typeSuffix);
-      // Use the label for displayTypeSuffix if a match is found, otherwise use the key (or "Base Model" for empty suffix)
       const displayTypeSuffix = tile.typeSuffix === "" 
         ? t('noTypeSuffix') 
         : (typeConfigEntry ? typeConfigEntry.label : tile.typeSuffix);
 
       groups[groupKey].variants.push({
         id: tile.id,
-        typeSuffix: displayTypeSuffix, // This will now be "L", "D", "HL-1", "HL-3", etc. or t('noTypeSuffix')
+        typeSuffix: displayTypeSuffix, 
         quantity: tile.quantity,
         createdAt: tile.createdAt?.toDate()
       });
@@ -152,8 +241,6 @@ const InventoryPage: FC = () => {
         quantity: undefined, 
       };
       typeConfig.forEach(sf => {
-        // sf.label is "L", "HL-1", "HL-3" etc.
-        // editingTileGroup.variants[x].typeSuffix is now also "L", "HL-1", "HL-3" etc. (or t('noTypeSuffix'))
         const variant = editingTileGroup.variants.find(v => v.typeSuffix === sf.label || (sf.label === t('noTypeSuffix') && v.typeSuffix === t('noTypeSuffix')));
         formData[sf.name] = !!variant;
         formData[sf.quantityName] = variant ? variant.quantity : undefined;
@@ -179,12 +266,12 @@ const InventoryPage: FC = () => {
 
         const checkedTypes = typeConfig.filter(sf => data[sf.name as keyof TileFormData]);
         if (checkedTypes.length > 0) {
-            for (const type of checkedTypes) { // type here is an element from typeConfig
+            for (const type of checkedTypes) { 
                 const quantityForType = data[type.quantityName as keyof TileFormData];
                 if (quantityForType !== undefined && quantityForType > 0) {
                     variantsToProcess.push({
                         modelNumberPrefix: modelPrefixToSave,
-                        typeSuffix: type.key, // Saves the key (e.g. "HL1", "HL3") to Firestore
+                        typeSuffix: type.key, 
                         width: data.width,
                         height: data.height,
                         quantity: quantityForType,
@@ -211,10 +298,10 @@ const InventoryPage: FC = () => {
         }
 
         if (formMode === 'edit' && editingTileGroup) {
-            const existingVariants = editingTileGroup.variants; // These have typeSuffix as label (e.g., "HL-1")
-            const variantsInFormMap = new Map(variantsToProcess.map(v => [v.typeSuffix, v])); // v.typeSuffix is key (e.g. "HL1")
+            const existingVariants = editingTileGroup.variants; 
+            const variantsInFormMap = new Map(variantsToProcess.map(v => [v.typeSuffix, v])); 
 
-            for (const variantData of variantsToProcess) { // variantData.typeSuffix is key
+            for (const variantData of variantsToProcess) { 
                 const correspondingTypeConfig = typeConfig.find(tc => tc.key === variantData.typeSuffix);
                 const labelForMatching = correspondingTypeConfig ? correspondingTypeConfig.label : (variantData.typeSuffix === "" ? t('noTypeSuffix') : variantData.typeSuffix);
 
@@ -222,13 +309,13 @@ const InventoryPage: FC = () => {
 
                 if (existingVariant) { 
                     const docRef = doc(db, 'tiles', existingVariant.id);
-                    batch.update(docRef, { ...variantData, updatedAt: now }); // variantData has key as typeSuffix
+                    batch.update(docRef, { ...variantData, updatedAt: now }); 
                 } else { 
                     const docRef = doc(collection(db, 'tiles'));
-                    batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now }); // variantData has key
+                    batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now }); 
                 }
             }
-            for (const existing of existingVariants) { // existing.typeSuffix is label or t('noTypeSuffix')
+            for (const existing of existingVariants) { 
                  const keyInForm = typeConfig.find(tc => tc.label === existing.typeSuffix)?.key ?? (existing.typeSuffix === t('noTypeSuffix') ? "" : null);
                 if (keyInForm === null || !variantsInFormMap.has(keyInForm)) {
                     const docRef = doc(db, 'tiles', existing.id);
@@ -238,7 +325,7 @@ const InventoryPage: FC = () => {
             toast({ title: t('toastGroupUpdatedTitle'), description: t('toastGroupUpdatedDescription', {modelNumberPrefix: editingTileGroup.modelNumberPrefix }) });
         } else { 
             const modelNumbersAdded: string[] = [];
-            for (const variantData of variantsToProcess) { // variantData.typeSuffix is key
+            for (const variantData of variantsToProcess) { 
                 const docRef = doc(collection(db, 'tiles'));
                 batch.set(docRef, { ...variantData, createdAt: now, updatedAt: now });
                 const labelForDisplay = typeConfig.find(tc => tc.key === variantData.typeSuffix)?.label ?? "Base";
@@ -248,6 +335,10 @@ const InventoryPage: FC = () => {
         }
 
         await batch.commit();
+        // Refetch total count as data has changed.
+        const countSnapshot = await getCountFromServer(collection(db, 'tiles'));
+        setTotalTileDocs(countSnapshot.data().count);
+
         setIsFormOpen(false);
         setEditingTileGroup(null);
     } catch (e) {
@@ -283,6 +374,10 @@ const InventoryPage: FC = () => {
         batch.delete(docRef);
       });
       await batch.commit();
+       // Refetch total count as data has changed.
+      const countSnapshot = await getCountFromServer(collection(db, 'tiles'));
+      setTotalTileDocs(countSnapshot.data().count);
+
 
       toast({ title: t('toastGroupDeletedTitle'), description: t('toastGroupDeletedDescription', { modelNumberPrefix: group.modelNumberPrefix }) });
     } catch (e) {
@@ -297,6 +392,20 @@ const InventoryPage: FC = () => {
     setEditingTileGroup(null);
     setFormMode('add');
     setIsFormOpen(true);
+  };
+
+  const handlePageChange = (newPage: number, direction: 'next' | 'prev' | 'initial' = 'initial') => {
+    if (newPage === currentPage && direction !== 'initial') return; // No change if already on page, unless it's an initial set
+    setQueryDirection(direction);
+    setCurrentPage(newPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setQueryDirection('initial'); // Reset direction
+    setCurrentPage(1); // Go to first page
+    setFirstVisibleDoc(null); // Reset cursors
+    setLastVisibleDoc(null);
   };
 
 
@@ -367,14 +476,13 @@ const InventoryPage: FC = () => {
                     isGroupEdit={formMode === 'edit'} 
                 />
             </div>
-
           </DialogContent>
         </Dialog>
       </div>
 
-      {isLoading && user && !tiles.length && clientMounted ? ( 
+      {isLoading && clientMounted && tiles.length === 0 ? ( 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
+          {[...Array(itemsPerPage > 3 ? 3 : itemsPerPage)].map((_, i) => ( // Show up to 3 skeletons or itemsPerPage
              <div key={i} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-3 animate-pulse">
                 <div className="h-6 w-3/4 bg-muted rounded"></div>
                 <div className="h-4 w-1/2 bg-muted rounded"></div>
@@ -393,6 +501,12 @@ const InventoryPage: FC = () => {
           groupedTiles={groupedTilesData}
           onEditGroup={handleEditGroup}
           onDeleteGroup={handleDeleteGroup}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          totalTileDocs={totalTileDocs}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          isLoading={isFetchingPageData}
         />
       )}
     </div>
@@ -400,4 +514,3 @@ const InventoryPage: FC = () => {
 };
 
 export default InventoryPage;
-

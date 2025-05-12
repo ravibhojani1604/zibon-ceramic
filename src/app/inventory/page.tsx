@@ -7,40 +7,46 @@ import {typeConfig, createInitialDefaultFormValues} from '@/components/TileForm'
 import TileList from '@/components/TileList';
 import type { GroupedDisplayTile, FirebaseTileDoc } from '@/types';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/context/i18n';
 import { getFirebaseInstances } from '@/lib/firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch, where, getDocs, FirestoreError } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, Timestamp, serverTimestamp, writeBatch, FirestoreError } from 'firebase/firestore';
 import { useAuth, registerFirestoreUnsubscriber } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 
 
 const InventoryPage: FC = () => {
-  const { user, isInitializing } = useAuth();
+  const { user, isInitializing: authIsInitializing } = useAuth(); // Renamed to avoid conflict
   const [tiles, setTiles] = useState<FirebaseTileDoc[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // This is for tile data loading
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTileGroup, setEditingTileGroup] = useState<GroupedDisplayTile | null>(null);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
+  const [clientMounted, setClientMounted] = useState(false);
+
 
   const { toast } = useToast();
   const { t } = useTranslation();
 
   useEffect(() => {
+    setClientMounted(true);
+  }, []);
+
+  useEffect(() => {
     let localUnsubscribe: (() => void) | null = null;
   
-    if (isInitializing || !user) {
-      setIsLoading(false);
+    if (authIsInitializing || !user) {
+      setIsLoading(false); // Stop tile loading if auth is not ready or no user
       setTiles([]); 
       setError(null);
-      // Cleanup for previous effect run if user became null or isInitializing became true
-      // This is handled by the return function of useEffect
       return;
     }
   
-    setIsLoading(true);
+    // Start loading tile data only if auth is initialized and user exists
+    setIsLoading(true); 
     const setupFirestoreListener = async () => {
       try {
         const { db } = await getFirebaseInstances();
@@ -60,17 +66,11 @@ const InventoryPage: FC = () => {
           setError(null);
         }, (err: FirestoreError) => {
           console.error("Error fetching tiles:", err.code, err.message);
-          // Check if the user object (from the closure of this effect) was present when the listener was set up.
-          // This helps differentiate between a normal fetch error and a permission error due to logout.
-          if (user) { 
+          if (user) { // Only process error if a user was expected
             if (err.code === 'permission-denied') {
-              // If permission is denied, it's likely due to logout. Suppress user-facing toast.
               console.warn("Firestore permission denied. This might be due to logout. Suppressing fetch error toast.");
-              // Optionally, clear tiles and set a soft error message if needed, but generally,
-              // the app will redirect, making a persistent error message unnecessary.
-              setTiles([]); // Clear tiles as access is lost
+              setTiles([]);
             } else {
-              // For other errors, show the toast.
               setError(t('errorMessages.fetchErrorDescription'));
               toast({ title: t('errorMessages.fetchErrorTitle'), description: t('errorMessages.fetchErrorDescription'), variant: 'destructive' });
             }
@@ -82,7 +82,7 @@ const InventoryPage: FC = () => {
         console.error("Firestore setup error:", e);
         setError(t('errorMessages.fetchErrorDescription'));
         setIsLoading(false);
-        if (user) { // Only toast if we expected to fetch
+        if (user) { 
            toast({ title: t('errorMessages.fetchErrorTitle'), description: (e as Error).message, variant: 'destructive' });
         }
         registerFirestoreUnsubscriber(null);
@@ -96,11 +96,9 @@ const InventoryPage: FC = () => {
         localUnsubscribe();
         console.log('InventoryPage: Local Firestore listener unsubscribed.');
       }
-      // When the component unmounts or dependencies change leading to cleanup,
-      // ensure the global unsubscriber reference is also cleared if this instance set it.
       registerFirestoreUnsubscriber(null); 
     };
-  }, [user, isInitializing, t, toast]);
+  }, [user, authIsInitializing, t, toast]);
 
 
   const groupedTilesData = useMemo((): GroupedDisplayTile[] => {
@@ -159,7 +157,7 @@ const InventoryPage: FC = () => {
 
 
   const handleSaveTile = async (data: TileFormData) => {
-    setIsLoading(true);
+    setIsLoading(true); // For save operation
     try {
         const { db } = await getFirebaseInstances();
         if (!db) throw new Error("Firestore not initialized");
@@ -288,12 +286,18 @@ const InventoryPage: FC = () => {
     setIsFormOpen(true);
   };
 
-  if (isInitializing && !user) { // Show full page loader only if initializing and no user yet
+  // This loader is for the InventoryPage itself, shown if auth is initializing.
+  // It uses a structure similar to AuthProvider's loader.
+  if (authIsInitializing && !user) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
            <svg
-            className="h-16 w-16 text-primary animate-spin"
+            className={cn(
+              "h-16 w-16 text-primary",
+              // Animate only if client has mounted and auth is still initializing
+              { 'animate-spin': clientMounted && authIsInitializing }
+            )}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -310,9 +314,9 @@ const InventoryPage: FC = () => {
         </div>
         <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
         <p className="text-muted-foreground mb-6">{t('authForm.loadingPage')}</p>
-        <div className="w-full max-w-xs space-y-3">
-          <div className="h-10 w-full bg-muted rounded-md animate-pulse" />
-          <div className="h-6 w-3/4 mx-auto bg-muted rounded-md animate-pulse" />
+        <div className="w-full max-w-xs space-y-3 mx-auto">
+          <div className={cn("h-10 w-full bg-muted rounded-md", { 'animate-pulse': clientMounted && authIsInitializing })} />
+          <div className={cn("h-6 w-3/4 mx-auto bg-muted rounded-md", { 'animate-pulse': clientMounted && authIsInitializing })} />
         </div>
       </div>
     );
@@ -357,7 +361,7 @@ const InventoryPage: FC = () => {
         </Dialog>
       </div>
 
-      {isLoading && !tiles.length && user ? ( // Show skeleton only if loading, no tiles yet, and user is present
+      {isLoading && user && !tiles.length ? ( // Show skeleton for tile data loading
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
              <div key={i} className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-3 animate-pulse">

@@ -1,19 +1,24 @@
-
 'use client';
 
 import AuthForm from '@/components/AuthForm';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { useTranslation } from '@/context/i18n';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
   const { register, user, loading: authOperationLoading, isInitializing } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const [clientMounted, setClientMounted] = useState(false);
+
+  useEffect(() => {
+    setClientMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isInitializing && user) {
@@ -22,12 +27,14 @@ export default function RegisterPage() {
   }, [user, isInitializing, router]);
 
   if (isInitializing || (!isInitializing && user)) {
-    // Show loading or placeholder while checking auth or redirecting
      return (
-      <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
-          <svg
-            className="h-16 w-16 text-primary animate-spin"
+           <svg
+            className={cn(
+              "h-16 w-16 text-primary",
+              { 'animate-spin': clientMounted && isInitializing }
+            )}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -42,12 +49,16 @@ export default function RegisterPage() {
             <path d="M14 14h7v7h-7z" />
           </svg>
         </div>
-        <p>{isInitializing ? t('authForm.loadingPage') : t('authForm.loadingRedirect')}</p>
+        <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
+        <p className="text-muted-foreground mb-6">{isInitializing ? t('authForm.loadingPage') : t('authForm.loadingRedirect')}</p>
+        <div className="w-full max-w-xs space-y-3 mx-auto">
+          <div className={cn("h-10 w-full bg-muted rounded-md", { 'animate-pulse': clientMounted && isInitializing })} />
+          <div className={cn("h-6 w-3/4 mx-auto bg-muted rounded-md", { 'animate-pulse': clientMounted && isInitializing })} />
+        </div>
       </div>
     );
   }
 
-  // If not initializing and no user, show the register form.
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
        <div className="absolute top-4 right-4 flex gap-2">

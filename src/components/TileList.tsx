@@ -220,7 +220,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
             </div>
           </div>
         </CardHeader>
-        <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
+        <CardContent className="flex justify-center items-start px-2 py-4 sm:px-6 sm:py-6">
           {groupedTiles.length === 0 && !searchTerm ? (
             <div className="text-center text-muted-foreground py-10">
               <Layers size={48} className="mx-auto mb-2" />
@@ -232,9 +232,9 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
               <p>{t('noTilesFoundSearch')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="inline-grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedGroupedTiles.map((group) => (
-                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-[400px] mx-auto sm:mx-0">
+                <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col max-w-[400px]">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Box className="text-primary" size={24} aria-label="Box icon"/>
@@ -340,10 +340,3 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
-
-
-
-
-
-
-

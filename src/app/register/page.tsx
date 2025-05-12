@@ -7,24 +7,47 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { useTranslation } from '@/context/i18n';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-// No need for useEffect or useState here if AuthContext handles all main logic
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function RegisterPage() {
-  // When RegisterPage renders, AuthContext.isInitializing should be false.
-  const { register, user, loading: authOperationLoading } = useAuth();
+  const { register, user, loading: authOperationLoading, isInitializing } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
 
-  if (user) {
-    // User is logged in (e.g. navigated here manually). AuthContext should redirect.
-    // This UI serves as a placeholder during that redirect.
-    return (
+  useEffect(() => {
+    if (!isInitializing && user) {
+      router.replace('/inventory');
+    }
+  }, [user, isInitializing, router]);
+
+  if (isInitializing || (!isInitializing && user)) {
+    // Show loading or placeholder while checking auth or redirecting
+     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-foreground p-4">
-        <p>{t('authForm.loadingRedirect')}</p>
+        <div className="flex items-center justify-center mb-6">
+          <svg
+            className="h-16 w-16 text-primary animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            data-ai-hint="ceramic tile"
+          >
+            <path d="M3 3h7v7H3z" />
+            <path d="M14 3h7v7h-7z" />
+            <path d="M3 14h7v7H3z" />
+            <path d="M14 14h7v7h-7z" />
+          </svg>
+        </div>
+        <p>{isInitializing ? t('authForm.loadingPage') : t('authForm.loadingRedirect')}</p>
       </div>
     );
   }
 
-  // If no user, show the register form.
+  // If not initializing and no user, show the register form.
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
        <div className="absolute top-4 right-4 flex gap-2">

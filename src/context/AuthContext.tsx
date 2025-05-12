@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode, FC } from 'react';
@@ -69,24 +68,36 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
       if ('code' in error && typeof error.code === 'string') { // Firebase AuthError
         errorCode = error.code;
-        errorMessage = error.message;
+        errorMessage = error.message; 
       } else { // Generic Error
         errorMessage = error.message;
       }
 
-      console.error(`${currentActionType} error:`, errorCode ? `Code: ${errorCode},` : '', `Message: ${errorMessage}`);
+      // Construct a detailed log message
+      let logOutput = `${currentActionType} ${actionType === 'logout' ? 'process' : 'attempt'} resulted in an error.`;
+      if (errorCode) {
+        logOutput += ` Firebase Code: ${errorCode}.`;
+      }
+      logOutput += ` Message: ${errorMessage}`;
 
+      // Log as warning for common user-input errors, error for others
+      if (errorCode === 'auth/invalid-credential' ||
+          errorCode === 'auth/user-not-found' ||
+          errorCode === 'auth/wrong-password') {
+        console.warn(logOutput);
+      } else {
+        console.error(logOutput);
+      }
+      
       let errorDescriptionKeySuffix: string;
       let defaultMessage = t(`authForm.${currentActionType}FailedDefaultError`, { code: errorCode || 'UNKNOWN' });
 
       if (errorCode) {
         switch (errorCode) {
           case 'auth/invalid-credential':
-            errorDescriptionKeySuffix = 'InvalidCredential';
-            break;
           case 'auth/user-not-found':
           case 'auth/wrong-password':
-            errorDescriptionKeySuffix = 'InvalidCredential'; // Consolidate for security
+            errorDescriptionKeySuffix = 'InvalidCredential';
             break;
           case 'auth/user-disabled':
             errorDescriptionKeySuffix = 'UserDisabled';
@@ -109,7 +120,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             break;
           case 'auth/configuration-not-found':
           case 'auth/invalid-api-key':
-            errorDescriptionKeySuffix = 'ConfigurationNotFound'; // Group API key issues with config
+            errorDescriptionKeySuffix = 'ConfigurationNotFound'; 
             defaultMessage = t('authForm.errorConfigurationNotFound');
             break;
           default:
@@ -143,8 +154,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         if (!auth) {
           console.error('Auth service is not available for listener setup.');
           setIsInitializing(false);
-          // Do not call handleAuthError here as it might trigger toasts too early or based on incomplete i18n
-          toast({ title: "Initialization Error", description: "Authentication service could not be initialized.", variant: "destructive"});
+          toast({ title: t('authErrorTitle'), description: "Authentication service could not be initialized.", variant: "destructive"});
           return;
         }
 
@@ -171,7 +181,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
               const publicPaths = ['/login', '/register'];
               if (pathname === '/') {
                  router.replace('/login');
-              } else if (!publicPaths.includes(pathname) && !pathname.startsWith('/_next')) { // Avoid _next paths
+              } else if (!publicPaths.includes(pathname) && !pathname.startsWith('/_next') && pathname !== '/inventory') { 
                   router.replace('/login');
               }
             }
@@ -181,7 +191,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             setUser(null);
             setIsInitializing(false);
             safeUnsubscribeFirestore();
-            handleAuthError(error, 'logout'); 
+            if (error.code !== 'auth/network-request-failed') { // Avoid toast for common network issues on listener itself
+                handleAuthError(error, 'logout'); // Treat listener errors as potential logout scenarios
+            }
           }
         );
         authStateUnsubscribeGlobal = localAuthUnsubscribe;
@@ -209,7 +221,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         authStateUnsubscribeGlobal = null; 
       }
     };
-  }, [clientMounted, router, pathname, t, handleAuthError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientMounted, router, pathname, t]); // Removed handleAuthError from deps as it's stable with useCallback
 
   const login = useCallback(
     async (data: AuthFormData) => {
@@ -222,6 +235,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({ title: t('authForm.loginSuccessTitle'), description: t('authForm.loginSuccessDescription') });
+        // No direct navigation here; onAuthStateChanged will handle it.
       } catch (error) {
         handleAuthError(error as AuthError, 'login');
       } finally {
@@ -241,6 +255,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
            throw new Error(t('authForm.authInitError'));
         }
         await createUserWithEmailAndPassword(auth, data.email, data.password);
+        
+        // Explicitly sign out the newly registered user.
+        // This ensures they are redirected to login and onAuthStateChanged correctly picks up no user.
         await signOut(auth); 
 
         toast({ title: t('authForm.registerSuccessTitle'), description: t('authForm.registerSuccessRedirectLoginDescription') });
@@ -264,16 +281,19 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const { auth } = await getFirebaseInstances(); 
       if (auth && auth.currentUser) { 
         await signOut(auth); 
+        // User state will be set to null by onAuthStateChanged
         toast({ title: t('authForm.logoutSuccessTitle'), description: t('authForm.logoutSuccessDescription') });
+        // onAuthStateChanged will handle redirect to /login
       } else {
+        // If no user or auth not available, ensure local state is cleared and redirect.
         setUser(null); 
         if (pathname !== '/login' && !pathname.startsWith('/_next')) router.replace('/login'); 
-        console.log('AuthContext: No current user to sign out or auth not available, cleared local state.');
+        console.log('AuthContext: No current user to sign out or auth not available, cleared local state and redirected.');
       }
     } catch (error) {
       console.error('AuthContext: Error during logout process:', error);
       handleAuthError(error as AuthError, 'logout');
-      setUser(null); 
+      setUser(null); // Ensure user is cleared locally
       if (pathname !== '/login' && !pathname.startsWith('/_next')) router.replace('/login'); 
     } finally {
       setAuthOperationLoading(false);
@@ -282,14 +302,14 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   
   const showAnimatedLoader = isInitializing && clientMounted;
 
-  if (isInitializing) {
+  if (isInitializing && clientMounted) { // Only show loader if client mounted and still initializing
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
         <div className="flex items-center justify-center mb-6">
-          <svg
+           <svg
             className={cn(
               "h-16 w-16 text-primary",
-              { 'animate-spin': showAnimatedLoader }
+              { 'animate-spin': showAnimatedLoader } 
             )}
             viewBox="0 0 24 24"
             fill="none"
@@ -307,13 +327,19 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         </div>
         <h1 className="text-3xl font-bold text-primary mb-2">{t('appTitle')}</h1>
         <p className="text-muted-foreground mb-6">{t('authForm.loadingPage')}</p>
-         <div className="w-full max-w-xs space-y-3 mx-auto">
+        <div className="w-full max-w-xs space-y-3 mx-auto">
           <div className={cn("h-10 w-full bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
           <div className={cn("h-6 w-3/4 mx-auto bg-muted rounded-md", { 'animate-pulse': showAnimatedLoader })} />
         </div>
       </div>
     );
   }
+  // If not clientMounted yet, or if initialization is done but no user (and not on public page), render null or minimal.
+  // This helps prevent rendering UI that depends on auth state too early or incorrectly.
+  if (!clientMounted || (isInitializing && !clientMounted)) {
+      return null; // Or a very minimal non-interactive placeholder
+  }
+
 
   return (
     <AuthContext.Provider value={{ user, loading: authOperationLoading, isInitializing, login, register, logout }}>

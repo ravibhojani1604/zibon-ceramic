@@ -321,14 +321,14 @@ const InventoryPage: FC = () => {
   
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold tracking-tight">{t('tileListCardTitle')}</h2>
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+        <h2 className="text-2xl font-semibold tracking-tight text-center sm:text-left">{t('tileListCardTitle')}</h2>
         <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
             setIsFormOpen(isOpen);
             if (!isOpen) setEditingTileGroup(null); 
         }}>
           <DialogTrigger asChild>
-            <Button onClick={handleOpenAddDialog}>
+            <Button onClick={handleOpenAddDialog} className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addNewTile')}
             </Button>
           </DialogTrigger>
@@ -386,3 +386,4 @@ const InventoryPage: FC = () => {
 };
 
 export default InventoryPage;
+

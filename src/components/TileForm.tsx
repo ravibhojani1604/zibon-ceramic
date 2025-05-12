@@ -334,7 +334,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, initialValues, onCancelEdit, 
               </FormItem>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="width"
@@ -402,7 +402,7 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, initialValues, onCancelEdit, 
               />
             )}
 
-            <div className="flex space-x-2 pt-2">
+            <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2 pt-2">
               <Button type="submit" className="w-full">
                 {isEditMode ? <Edit className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                 {isEditMode ? (isGroupEdit ? t('updateGroupButton') : t('updateTileButton')) : t('addTileButton')}
@@ -419,3 +419,4 @@ const TileForm: FC<TileFormProps> = ({ onSaveTile, initialValues, onCancelEdit, 
 };
 
 export default TileForm;
+

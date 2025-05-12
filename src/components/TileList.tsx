@@ -6,7 +6,7 @@ import type { FC } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { GroupedDisplayTile, TileVariantDisplay } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -19,34 +19,50 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Archive, Layers, Square, Ruler, Edit3, Trash2, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box, Edit, Trash } from "lucide-react"; 
+import { Archive, Layers, Square, Ruler, Edit, Trash, SearchX, Search, Tag, FileDown, FileSpreadsheet, ChevronLeft, ChevronRight, Box, Loader2 } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from '@/context/i18n';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 interface TileListProps {
   groupedTiles: GroupedDisplayTile[];
   onEditGroup: (group: GroupedDisplayTile) => void;
   onDeleteGroup: (group: GroupedDisplayTile) => void;
+  currentPage: number;
+  itemsPerPage: number;
+  totalTileDocs: number;
+  onPageChange: (newPage: number, direction: 'next' | 'prev' | 'initial') => void;
+  onItemsPerPageChange: (newItemsPerPage: number) => void;
+  isLoading: boolean; 
 }
 
-const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
+export const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
-const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup }) => {
+const TileList: FC<TileListProps> = ({ 
+  groupedTiles, 
+  onEditGroup, 
+  onDeleteGroup,
+  currentPage,
+  itemsPerPage,
+  totalTileDocs,
+  onPageChange,
+  onItemsPerPageChange,
+  isLoading
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'group', data: GroupedDisplayTile } | null>(null);
   const { toast } = useToast();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE_OPTIONS[1]);
   const { t } = useTranslation();
 
-  const totalGroupedQuantity = useMemo(() => {
+  const totalGroupedQuantityOnPage = useMemo(() => {
     return groupedTiles.reduce((sum, group) => 
       sum + group.variants.reduce((variantSum, variant) => variantSum + variant.quantity, 0)
     , 0);
   }, [groupedTiles]);
+
 
   const filteredGroupedTiles = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -72,18 +88,18 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
     });
   }, [groupedTiles, searchTerm]);
 
-  const paginatedGroupedTiles = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredGroupedTiles.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredGroupedTiles, currentPage, itemsPerPage]);
 
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(filteredGroupedTiles.length / itemsPerPage));
-  }, [filteredGroupedTiles, itemsPerPage]);
+    return Math.max(1, Math.ceil(totalTileDocs / itemsPerPage));
+  }, [totalTileDocs, itemsPerPage]);
 
   useEffect(() => {
-    setCurrentPage(1); 
-  }, [searchTerm, itemsPerPage]);
+    // If search term changes and current page becomes invalid, reset to 1
+    // This useEffect might need adjustment if search is server-side
+    if (searchTerm && currentPage !== 1) { // Only trigger if search term exists and page is not already 1
+        onPageChange(1, 'initial');
+    }
+  }, [searchTerm, onPageChange, currentPage]);
 
 
   const handleDeleteGroupClick = (group: GroupedDisplayTile) => {
@@ -100,8 +116,10 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
   };
   
   const getExportableData = useCallback(() => {
+    // Note: This export will only include the currently displayed page data
+    // For full data export, a different mechanism fetching all data would be needed
     const dataToExport: any[] = [];
-    filteredGroupedTiles.forEach(group => {
+    groupedTiles.forEach(group => { // Using currently loaded (paginated) tiles
       group.variants.forEach(variant => {
         dataToExport.push({
           [t('exportHeaderFullModel')]: variant.typeSuffix && variant.typeSuffix !== t('noTypeSuffix') && variant.typeSuffix !== "N/A" && group.modelNumberPrefix !== "N/A"
@@ -113,7 +131,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
       });
     });
     return dataToExport;
-  }, [filteredGroupedTiles, t]);
+  }, [groupedTiles, t]);
 
 
   const handleExportPDF = async () => {
@@ -172,36 +190,39 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
   };
 
 
-  const handleItemsPerPageChange = (value: string) => {
-    setItemsPerPage(parseInt(value, 10));
-    setCurrentPage(1);
+  const handleItemsPerPageChangeInternal = (value: string) => {
+    onItemsPerPageChange(parseInt(value, 10));
   };
 
   const goToPreviousPage = () => {
-    setCurrentPage((prev) => Math.max(1, prev - 1));
+    if (currentPage > 1) {
+      onPageChange(currentPage - 1, 'prev');
+    }
   };
 
   const goToNextPage = () => {
-    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
+     if (currentPage < totalPages) {
+       onPageChange(currentPage + 1, 'next');
+    }
   };
 
 
   return (
     <>
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
             <CardTitle className="text-xl flex items-center gap-2">
-              <Archive className="text-primary" />
+              <Archive className="text-primary h-5 w-5 sm:h-6 sm:w-6" />
               {t('tileListCardTitle')}
             </CardTitle>
-            <div className="text-lg font-semibold text-right sm:text-left w-full sm:w-auto">
-              {t('totalTilesLabel', { count: totalGroupedQuantity.toString() })}
+             <div className="text-md sm:text-lg font-semibold text-right sm:text-left w-full sm:w-auto">
+              {t('totalTilesInDBLabel', { count: totalTileDocs.toString() })}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2">
             <div className="flex items-center gap-2 w-full sm:flex-1">
-              <Search className="text-muted-foreground" />
+              <Search className="text-muted-foreground h-5 w-5" />
               <Input
                 placeholder={t('searchPlaceholder')}
                 value={searchTerm}
@@ -211,54 +232,65 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-              <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+              <Button onClick={handleExportPDF} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 py-1.5 sm:text-sm sm:px-3">
                 <FileDown className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('downloadPDF')}
               </Button>
-              <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 sm:text-sm sm:px-3"> {/* Adjusted button padding and text size */}
+              <Button onClick={handleExportExcel} variant="outline" size="sm" className="w-full sm:w-auto text-xs px-2 py-1.5 sm:text-sm sm:px-3">
                 <FileSpreadsheet className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('downloadExcel')}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex justify-center items-start px-2 py-4 sm:px-6 sm:py-6">
-          {groupedTiles.length === 0 && !searchTerm ? (
-            <div className="text-center text-muted-foreground py-10">
+        <CardContent className="flex justify-center items-start px-2 py-4 sm:px-6 sm:py-6 min-h-[300px]">
+          {isLoading && groupedTiles.length === 0 ? (
+             <div className="flex flex-col items-center justify-center text-muted-foreground py-10 w-full">
+                <Loader2 size={48} className="mx-auto mb-4 animate-spin text-primary" />
+                <p>{t('loadingTiles')}</p>
+             </div>
+          ) : !isLoading && groupedTiles.length === 0 && !searchTerm && totalTileDocs === 0 ? (
+            <div className="text-center text-muted-foreground py-10 w-full">
               <Layers size={48} className="mx-auto mb-2" />
               <p>{t('noTilesAdded')}</p>
             </div>
-          ) : filteredGroupedTiles.length === 0 && searchTerm ? (
-            <div className="text-center text-muted-foreground py-10">
+          ) : !isLoading && groupedTiles.length === 0 && searchTerm ? (
+             <div className="text-center text-muted-foreground py-10 w-full">
               <SearchX size={48} className="mx-auto mb-2" />
               <p>{t('noTilesFoundSearch')}</p>
             </div>
+          ) : !isLoading && groupedTiles.length === 0 && totalTileDocs > 0 ? (
+            // This case implies current page is empty but there's data elsewhere (e.g., navigated to an empty last page)
+            <div className="text-center text-muted-foreground py-10 w-full">
+              <Layers size={48} className="mx-auto mb-2" />
+              <p>{t('noTilesOnPage')}</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 p-0 md:p-4 w-full">
-              {paginatedGroupedTiles.map((group) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 w-full items-start">
+              {filteredGroupedTiles.map((group) => (
                 <Card key={group.groupKey} className="w-full shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col">
-                  <CardHeader className="pb-3 px-4 pt-4 sm:px-6 sm:pt-6">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Box className="text-primary" size={24} aria-label="Box icon"/>
+                  <CardHeader className="pb-3 px-4 pt-4 sm:px-5 sm:pt-5">
+                    <CardTitle className="text-md sm:text-lg flex items-center gap-2">
+                      <Box className="text-primary h-5 w-5 sm:h-6 sm:w-6" aria-label="Box icon"/>
                       {group.modelNumberPrefix}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
                       <Ruler size={14} /> {t('tileCardDimensionsLabel', { width: group.width.toString(), height: group.height.toString() })}
                     </p>
                   </CardHeader>
-                  <CardContent className="flex-grow pt-2 pb-3 px-4 sm:px-6 flex flex-col items-center space-y-2">
+                  <CardContent className="flex-grow pt-2 pb-3 px-4 sm:px-5 flex flex-col items-stretch space-y-2">
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm w-full"> 
-                        <div className="flex justify-between items-center min-w-[150px] gap-4">
-                           <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm px-3 py-1">
+                      <div key={variant.id} className="p-2 sm:p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm w-full"> 
+                        <div className="flex justify-between items-center min-w-[100px] gap-2 sm:gap-4">
+                           <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-xs sm:text-sm px-2 py-0.5 sm:px-3 sm:py-1 truncate">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
                            </Badge>
-                           <span className="text-sm font-medium">
+                           <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
                              {t('tileCardQuantityShortLabel', { count: variant.quantity.toString() })}
                            </span>
                         </div>
                       </div>
                     ))}
                   </CardContent>
-                   <CardFooter className="pt-3 pb-4 px-4 sm:px-6 border-t flex flex-col gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+                   <CardFooter className="pt-3 pb-4 px-4 sm:px-5 border-t flex flex-col gap-2 sm:flex-row sm:justify-end sm:space-x-2">
                       <Button variant="outline" size="sm" onClick={() => onEditGroup(group)} className="w-full sm:w-auto text-xs px-2 py-1.5 sm:text-sm sm:px-3">
                         <Edit className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> {t('editGroupButton')}
                       </Button>
@@ -271,11 +303,11 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
             </div>
           )}
         </CardContent>
-        {filteredGroupedTiles.length > 0 && (
-          <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t">
+        {totalTileDocs > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2 sm:mb-0">
               <span>{t('rowsPerPage')}</span>
-              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChangeInternal}>
                 <SelectTrigger className="w-[70px] h-8">
                   <SelectValue placeholder={itemsPerPage.toString()} />
                 </SelectTrigger>
@@ -295,20 +327,22 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                   variant="outline"
                   size="sm"
                   onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || isLoading}
                   aria-label={t('previousPage')}
+                  className="px-2 sm:px-3"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t('previousPage')}</span>
+                  <span className="hidden sm:inline ml-1">{t('previousPage')}</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage === totalPages || isLoading}
                   aria-label={t('nextPage')}
+                  className="px-2 sm:px-3"
                 >
-                  <span className="hidden sm:inline">{t('nextPage')}</span>
+                  <span className="hidden sm:inline mr-1">{t('nextPage')}</span>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -329,7 +363,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setItemToDelete(null)}>{t('deleteDialogCancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+            <AlertDialogAction onClick={confirmDelete} className={cn(buttonVariants({variant: "destructive"}))}>
               {t('deleteDialogConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>

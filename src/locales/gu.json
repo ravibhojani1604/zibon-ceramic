@@ -82,7 +82,7 @@
   "modelNumberPrefixInvalidError": "જો આંકડાકીય હોય તો મોડેલ પ્રીફિક્સ માન્ય નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixPositiveError": "આંકડાકીય મોડેલ પ્રીફિક્સ હકારાત્મક નંબર હોવો આવશ્યક છે.",
   "modelNumberPrefixNonEmptyError": "જો પ્રદાન કરેલ હોય તો મોડેલ પ્રીફિક્સ ખાલી ન હોઈ શકે.",
-  "modelNumberPrefixRequiredWithHL": "જો HL-1, HL-2, HL-4 અથવા HL-5 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
+  "modelNumberPrefixRequiredWithHL": "જો HL-1, HL-2, HL-3, HL-4 અથવા HL-5 પસંદ કરેલ હોય તો પ્રીફિક્સ આવશ્યક છે.",
   "typeCheckboxesLabel": "પ્રકાર",
   "selectAllTypes": "બધા પ્રકાર પસંદ કરો",
   "widthLabel": "પહોળાઈ (ઇંચ)",
@@ -110,13 +110,16 @@
   "noTypeSuffix": "મૂળ મોડેલ",
 
   "tileListCardTitle": "વર્તમાન ઇન્વેન્ટરી",
-  "totalTilesLabel": "કુલ ટાઇલ્સ: {{count}}",
+  "totalTilesLabel": "પૃષ્ઠ પર કુલ ટાઇલ્સ: {{count}}",
+  "totalTilesInDBLabel": "ડેટાબેઝમાં કુલ ટાઇલ્સ: {{count}}",
   "searchPlaceholder": "મોડેલ, પ્રકાર અથવા કદ દ્વારા શોધો (દા.ત. ૧૦૦૧-L, ૨૪x૧૨)...",
   "searchAriaLabel": "ટાઇલ મોડેલ પ્રીફિક્સ, પ્રકાર, અથવા કદ (પહોળાઈxઊંચાઈ) દ્વારા શોધો",
   "downloadPDF": "PDF ડાઉનલોડ કરો",
   "downloadExcel": "Excel ડાઉનલોડ કરો",
   "noTilesAdded": "હજી સુધી કોઈ ટાઇલ્સ ઉમેરવામાં આવી નથી. શરૂ કરવા માટે 'નવી ટાઇલ ઉમેરો' પર ક્લિક કરો.",
   "noTilesFoundSearch": "તમારી શોધ માપદંડ સાથે કોઈ ટાઇલ્સ મેળ ખાતી નથી.",
+  "noTilesOnPage": "આ પૃષ્ઠ પર કોઈ ટાઇલ્સ નથી. પાછલું પૃષ્ઠ અજમાવો અથવા ફિલ્ટર્સ સમાયોજિત કરો.",
+  "loadingTiles": "ટાઇલ્સ લોડ કરી રહ્યું છે...",
   "tileCardModelLabel": "મોડેલ: {{modelNumber}}",
   "tileCardDimensionsLabel": "{{width}} x {{height}} ઇંચ",
   "tileCardQuantityLabel": "જથ્થો: {{count}}",
@@ -143,10 +146,10 @@
   "exportHeaderQuantity": "જથ્થો",
   "excelSheetName": "ટાઇલ ઇન્વેન્ટરી",
 
-  "exportSuccessPDF": "ટાઇલ ઇન્વેન્ટરી PDF તરીકે ડાઉનલોડ કરવામાં આવી છે.",
-  "exportSuccessExcel": "ટાઇલ ઇન્વેન્ટરી Excel તરીકે ડાઉનલોડ કરવામાં આવી છે.",
+  "exportSuccessPDF": "ટાઇલ ઇન્વેન્ટરી (વર્તમાન પૃષ્ઠ) PDF તરીકે ડાઉનલોડ કરવામાં આવી છે.",
+  "exportSuccessExcel": "ટાઇલ ઇન્વેન્ટરી (વર્તમાન પૃષ્ઠ) Excel તરીકે ડાઉનલોડ કરવામાં આવી છે.",
   "exportNoTiles": "ડાઉનલોડ કરવા માટે કોઈ ટાઇલ્સ નથી",
-  "exportNoTilesDescription": "વર્તમાન ફિલ્ટર સાથે મેળ ખાતી કોઈ ટાઇલ્સ ડાઉનલોડ કરવા માટે નથી.",
+  "exportNoTilesDescription": "વર્તમાન ફિલ્ટર સાથે મેળ ખાતી કોઈ ટાઇલ્સ ડાઉનલોડ કરવા માટે નથી અથવા વર્તમાન પૃષ્ઠ પર નથી.",
   "pdfExportTitle": "ઝિબોન સિરામિક - ટાઇલ ઇન્વેન્ટરી",
   "exportErrorTitle": "ડાઉનલોડમાં ભૂલ",
   "exportErrorPdfDescription": "PDF ડાઉનલોડ કરી શકાયું નથી. કૃપા કરીને ફરી પ્રયાસ કરો.",
@@ -175,4 +178,4 @@
   "toastGroupDeletedDescription": "પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળું ટાઇલ ગ્રુપ અને તેના બધા વેરિઅન્ટ કાઢી નાખવામાં આવ્યા છે."
 }
     
-
+```

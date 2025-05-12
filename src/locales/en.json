@@ -82,7 +82,7 @@
   "modelNumberPrefixInvalidError": "Model prefix must be a valid number if numeric.",
   "modelNumberPrefixPositiveError": "Numeric model prefix must be a positive number.",
   "modelNumberPrefixNonEmptyError": "Model prefix cannot be empty if provided.",
-  "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-4 or HL-5 is selected.",
+  "modelNumberPrefixRequiredWithHL": "Prefix is required if HL-1, HL-2, HL-3, HL-4 or HL-5 is selected.",
   "typeCheckboxesLabel": "Type",
   "selectAllTypes": "Select All Types",
   "widthLabel": "Width (in)",
@@ -110,13 +110,16 @@
   "noTypeSuffix": "Base Model",
 
   "tileListCardTitle": "Current Inventory",
-  "totalTilesLabel": "Total Tiles: {{count}}",
+  "totalTilesLabel": "Total Tiles on Page: {{count}}",
+  "totalTilesInDBLabel": "Total Tiles in DB: {{count}}",
   "searchPlaceholder": "Search by model, type or size (e.g. 1001-L, 24x12)...",
   "searchAriaLabel": "Search by tile model prefix, type, or size (widthxheight)",
   "downloadPDF": "Download PDF",
   "downloadExcel": "Download Excel",
   "noTilesAdded": "No tiles added yet. Click 'Add New Tile' to start.",
   "noTilesFoundSearch": "No tiles match your search criteria.",
+  "noTilesOnPage": "No tiles on this page. Try previous page or adjust filters.",
+  "loadingTiles": "Loading tiles...",
   "tileCardModelLabel": "Model: {{modelNumber}}",
   "tileCardDimensionsLabel": "{{width}} x {{height}} in",
   "tileCardQuantityLabel": "Quantity: {{count}}",
@@ -143,10 +146,10 @@
   "exportHeaderQuantity": "Quantity",
   "excelSheetName": "Tile Inventory",
 
-  "exportSuccessPDF": "Tile inventory has been downloaded as PDF.",
-  "exportSuccessExcel": "Tile inventory has been downloaded as Excel.",
+  "exportSuccessPDF": "Tile inventory (current page) has been downloaded as PDF.",
+  "exportSuccessExcel": "Tile inventory (current page) has been downloaded as Excel.",
   "exportNoTiles": "No Tiles to Download",
-  "exportNoTilesDescription": "There are no tiles matching the current filter to download.",
+  "exportNoTilesDescription": "There are no tiles matching the current filter or on the current page to download.",
   "pdfExportTitle": "Zibon Ceramic - Tile Inventory",
   "exportErrorTitle": "Download Error",
   "exportErrorPdfDescription": "Could not download PDF. Please try again.",
@@ -175,4 +178,4 @@
   "toastGroupDeletedDescription": "The tile group with prefix \"{{modelNumberPrefix}}\" and all its variants have been deleted."
 }
     
-
+```

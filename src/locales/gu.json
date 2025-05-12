@@ -18,7 +18,7 @@
     "registerTitle": "એકાઉન્ટ બનાવો",
     "registerDescription": "તમારી ઝિબોન સિરામિક ઇન્વેન્ટરીનું સંચાલન શરૂ કરવા માટે સાઇન અપ કરો.",
     "emailLabel": "ઇમેઇલ સરનામું",
-    "emailPlaceholder": "you@example.com",
+    "emailPlaceholder": "તમારું@ઉદાહરણ.કોમ",
     "passwordLabel": "પાસવર્ડ",
     "confirmPasswordLabel": "પાસવર્ડની પુષ્ટિ કરો",
     "loginButton": "લૉગિન કરો",
@@ -38,15 +38,19 @@
     "authInitError": "પ્રમાણીકરણ શરૂ કરી શકાયું નથી. કૃપા કરીને પછીથી ફરી પ્રયાસ કરો.",
     "authInitErrorLogout": "લૉગઆઉટ માટે પ્રમાણીકરણ સેવા ઉપલબ્ધ નથી. કૃપા કરીને ખાતરી કરો કે ફાયરબેઝ યોગ્ય રીતે ગોઠવેલું છે અને ફરી પ્રયાસ કરો.",
     "loginSuccessTitle": "લૉગિન સફળ",
-    "loginSuccessDescription": "ફરી સ્વાગત છે!",
+    "loginSuccessDescription": "ફરી સ્વાગત છે! તમારી ઇન્વેન્ટરી પર રીડાયરેક્ટ કરી રહ્યા છીએ...",
     "loginFailedTitle": "લૉગિન નિષ્ફળ",
+    "loginFailedDefaultError": "લૉગિન નિષ્ફળ થયું. એક અનપેક્ષિત ભૂલ આવી. કોડ: {{code}}",
     "registerSuccessTitle": "નોંધણી સફળ",
     "registerSuccessDescription": "સ્વાગત છે!",
     "registerSuccessRedirectLoginDescription": "નોંધણી સફળ! કૃપા કરીને લૉગ ઇન કરો.",
     "registerFailedTitle": "નોંધણી નિષ્ફળ",
+    "registerFailedDefaultError": "નોંધણી નિષ્ફળ થઈ. એક અનપેક્ષિત ભૂલ આવી. કોડ: {{code}}",
     "logoutSuccessTitle": "લૉગઆઉટ સફળ",
     "logoutSuccessDescription": "તમે સફળતાપૂર્વક લૉગઆઉટ થયા છો.",
     "logoutFailedTitle": "લૉગઆઉટ નિષ્ફળ",
+    "logoutFailedDefaultError": "લૉગઆઉટ નિષ્ફળ થયું. એક અનપેક્ષિત ભૂલ આવી. કોડ: {{code}}",
+    "alreadyLoggedOut": "તમે પહેલેથી જ લૉગઆઉટ છો.",
     "logoutCompletedClientSide": "તમારા ઉપકરણ પર લૉગઆઉટ પૂર્ણ થયું. જો સમસ્યાઓ ચાલુ રહે, તો સર્વર સત્ર હજી પણ સક્રિય હોઈ શકે છે.",
     "errorInvalidCredential": "અમાન્ય ઇમેઇલ અથવા પાસવર્ડ. કૃપા કરીને ફરી પ્રયાસ કરો.",
     "errorUserDisabled": "આ એકાઉન્ટ નિષ્ક્રિય કરવામાં આવ્યું છે. કૃપા કરીને સપોર્ટનો સંપર્ક કરો.",
@@ -54,8 +58,11 @@
     "errorEmailInUse": "આ ઇમેઇલ પહેલેથી જ રજીસ્ટર થયેલ છે. કૃપા કરીને લૉગિન કરો અથવા અલગ ઇમેઇલનો ઉપયોગ કરો.",
     "errorWeakPassword": "પાસવર્ડ ખૂબ નબળો છે. કૃપા કરીને વધુ મજબૂત પાસવર્ડ પસંદ કરો.",
     "errorNetworkRequestFailed": "નેટવર્કમાં ભૂલ. કૃપા કરીને તમારું કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.",
+    "errorRequiresRecentLogin": "આ કામગીરી સંવેદનશીલ છે અને તાજેતરના પ્રમાણીકરણની જરૂર છે. કૃપા કરીને લૉગઆઉટ કરી ફરી લૉગિન કરો.",
+    "errorConfigurationNotFound": "ફાયરબેઝ ગોઠવણી મળી નથી અથવા અમાન્ય છે. કૃપા કરીને સપોર્ટનો સંપર્ક કરો.",
     "errorLoginFailed": "લૉગિન નિષ્ફળ. કૃપા કરીને તમારી ઓળખપત્રો તપાસો અથવા પછીથી ફરી પ્રયાસ કરો.",
-    "errorRegisterFailed": "નોંધણી નિષ્ફળ. કૃપા કરીને પછીથી ફરી પ્રયાસ કરો."
+    "errorRegisterFailed": "નોંધણી નિષ્ફળ. કૃપા કરીને પછીથી ફરી પ્રયાસ કરો.",
+    "errorLogoutFailed": "લૉગઆઉટ નિષ્ફળ. કૃપા કરીને ફરી પ્રયાસ કરો."
   },
 
   "errorMessages": {
@@ -168,3 +175,4 @@
   "toastGroupDeletedDescription": "પ્રીફિક્સ \"{{modelNumberPrefix}}\" વાળું ટાઇલ ગ્રુપ અને તેના બધા વેરિઅન્ટ કાઢી નાખવામાં આવ્યા છે."
 }
     
+

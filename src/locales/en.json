@@ -38,15 +38,19 @@
     "authInitError": "Could not initialize authentication. Please try again later.",
     "authInitErrorLogout": "Authentication service is not available for logout. Please ensure Firebase is correctly configured and try again.",
     "loginSuccessTitle": "Login Successful",
-    "loginSuccessDescription": "Welcome back!",
+    "loginSuccessDescription": "Welcome back! Redirecting to your inventory...",
     "loginFailedTitle": "Login Failed",
+    "loginFailedDefaultError": "Login failed. An unexpected error occurred. Code: {{code}}",
     "registerSuccessTitle": "Registration Successful",
     "registerSuccessDescription": "Welcome!",
     "registerSuccessRedirectLoginDescription": "Registration successful! Please log in.",
     "registerFailedTitle": "Registration Failed",
+    "registerFailedDefaultError": "Registration failed. An unexpected error occurred. Code: {{code}}",
     "logoutSuccessTitle": "Logged Out",
     "logoutSuccessDescription": "You have been successfully logged out.",
     "logoutFailedTitle": "Logout Failed",
+    "logoutFailedDefaultError": "Logout failed. An unexpected error occurred. Code: {{code}}",
+    "alreadyLoggedOut": "You are already logged out.",
     "logoutCompletedClientSide": "Logout completed on your device. If issues persist, server session might still be active.",
     "errorInvalidCredential": "Invalid email or password. Please try again.",
     "errorUserDisabled": "This account has been disabled. Please contact support.",
@@ -54,8 +58,11 @@
     "errorEmailInUse": "This email is already registered. Please login or use a different email.",
     "errorWeakPassword": "The password is too weak. Please choose a stronger password.",
     "errorNetworkRequestFailed": "Network error. Please check your connection and try again.",
+    "errorRequiresRecentLogin": "This operation is sensitive and requires recent authentication. Please log out and log back in.",
+    "errorConfigurationNotFound": "Firebase configuration not found or is invalid. Please contact support.",
     "errorLoginFailed": "Login failed. Please check your credentials or try again later.",
-    "errorRegisterFailed": "Registration failed. Please try again later."
+    "errorRegisterFailed": "Registration failed. Please try again later.",
+    "errorLogoutFailed": "Logout failed. Please try again."
   },
 
   "errorMessages": {
@@ -168,3 +175,4 @@
   "toastGroupDeletedDescription": "The tile group with prefix \"{{modelNumberPrefix}}\" and all its variants have been deleted."
 }
     
+

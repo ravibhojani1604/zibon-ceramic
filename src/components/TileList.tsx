@@ -246,7 +246,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
                   </CardHeader>
                   <CardContent className="flex-grow pt-0 pb-3 px-4 flex flex-col items-center space-y-2">
                     {group.variants.map((variant) => (
-                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm">
+                      <div key={variant.id} className="p-2 rounded-md border bg-card hover:bg-muted/30 transition-colors shadow-sm w-full max-w-xs"> {/* Added w-full and max-w-xs for centering effect */}
                         <div className="flex justify-between items-center min-w-[150px] gap-4">
                            <Badge variant={variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? "secondary" : "default"} className="text-sm">
                              {variant.typeSuffix === "N/A" || variant.typeSuffix === t('noTypeSuffix') ? t('baseModel') : variant.typeSuffix}
@@ -340,6 +340,7 @@ const TileList: FC<TileListProps> = ({ groupedTiles, onEditGroup, onDeleteGroup 
 };
 
 export default TileList;
+
 
 
 
